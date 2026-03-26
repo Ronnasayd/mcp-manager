@@ -78,6 +78,20 @@
       "args": [
         "html-to-markdown-mcp"
       ]
+    },
+    "json-mcp-filter": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "json-mcp-filter@latest"
+      ]
+    },
+    "large-file": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@willianpinho/large-file-mcp"
+      ]
     }
   }
 }
