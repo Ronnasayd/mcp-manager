@@ -72,6 +72,12 @@
         "CSV_SESSION_TIMEOUT": "60",
         "CSV_MAX_SESSIONS": "10"
       }
+    },
+    "html-to-markdown": {
+      "command": "npx",
+      "args": [
+        "html-to-markdown-mcp"
+      ]
     }
   }
 }
