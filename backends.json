@@ -42,6 +42,21 @@
     "exa": {
       "type": "http",
       "url": "https://mcp.exa.ai/mcp"
+    },
+    "next-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "next-devtools-mcp@latest"
+      ]
+    },
+    "a11y": {
+      "command": "npx",
+      "args": [
+        "a11y-mcp"
+      ],
+      "disabled": false,
+      "autoApprove": []
     }
   }
 }
