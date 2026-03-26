@@ -33,13 +33,6 @@
       "type": "http",
       "url": "https://mcp.context7.com/mcp"
     },
-    "figma": {
-      "url": "https://mcp.figma.com/mcp",
-      "type": "http",
-      "headers": {
-        "Authorization": "Bearer ${env:FIGMA_ACCESS_TOKEN}"
-      }
-    },
     "chrome-devtools": {
       "command": "npx",
       "args": [
@@ -49,20 +42,6 @@
     "exa": {
       "type": "http",
       "url": "https://mcp.exa.ai/mcp"
-    },
-    "github": {
-      "type": "http",
-      "url": "https://api.githubcopilot.com/mcp/",
-      "headers": {
-        "Authorization": "Bearer ${env:GITHUB_TOKEN}"
-      }
-    },
-    "atlassian": {
-      "type": "http",
-      "url": "https://mcp.atlassian.com/v1/mcp",
-      "headers": {
-        "Authorization": "Bearer ${env:ATLASSIAN_TOKEN}"
-      }
     }
   }
 }
