@@ -1,0 +1,68 @@
+{
+  "servers": {
+    "sequentialthinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "type": "stdio"
+    },
+    "taskmaster-ai": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-p",
+        "@modelcontextprotocol/sdk@1.17.2",
+        "-p",
+        "fastmcp@3.23.0",
+        "-p",
+        "task-master-ai",
+        "task-master-ai"
+      ],
+      "env": {
+        "TASK_MASTER_ALLOW_METADATA_UPDATES": "true"
+      }
+    },
+    "my-mcp-server": {
+      "type": "stdio",
+      "command": "my_mcp_server",
+      "args": []
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "figma": {
+      "url": "https://mcp.figma.com/mcp",
+      "type": "http",
+      "headers": {
+        "Authorization": "Bearer ${env:FIGMA_ACCESS_TOKEN}"
+      }
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "chrome-devtools-mcp@latest"
+      ]
+    },
+    "exa": {
+      "type": "http",
+      "url": "https://mcp.exa.ai/mcp"
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${env:GITHUB_TOKEN}"
+      }
+    },
+    "atlassian": {
+      "type": "http",
+      "url": "https://mcp.atlassian.com/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:ATLASSIAN_TOKEN}"
+      }
+    }
+  }
+}
