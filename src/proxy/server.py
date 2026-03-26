@@ -190,9 +190,9 @@ def main() -> None:
         try:
             await manager.start_cleanup_loop()
             if args.transport == "stdio":
-                await mcp.run_async(transport="stdio")
+                await mcp.run_stdio_async()
             else:
-                await mcp.run_async(transport="sse", port=args.port)
+                await mcp.run_sse_async(port=args.port)
         finally:
             await manager.close_all()
 
