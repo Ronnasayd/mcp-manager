@@ -63,6 +63,15 @@
       "args": [
         "@playwright/mcp@latest"
       ]
+    },
+    "csv-editor": {
+      "command": "/home/ronnas/develop/public/csv-editor/venv/bin/csv-editor",
+      "args": [],
+      "env": {
+        "CSV_MAX_FILE_SIZE": "1024",
+        "CSV_SESSION_TIMEOUT": "60",
+        "CSV_MAX_SESSIONS": "10"
+      }
     }
   }
 }
