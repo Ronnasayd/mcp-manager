@@ -20,13 +20,13 @@ class StdioBackendConfig(BaseModel):
     command: str
     args: list[str] = Field(default_factory=list)
     env: dict[str, str] = Field(default_factory=dict)
-    timeout_seconds: int = 30
+    timeout_seconds: int = 300
 
 
 class HttpBackendConfig(BaseModel):
     type: BackendType
     url: str
-    timeout_seconds: int = 30
+    timeout_seconds: int = 300
     headers: dict[str, str] = Field(default_factory=dict)
 
     @field_validator("type")

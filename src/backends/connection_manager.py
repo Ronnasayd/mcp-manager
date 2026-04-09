@@ -80,16 +80,23 @@ class StdioConnection(BackendConnection):
 
     async def _send(self, payload: dict) -> dict:
         proc = await self._ensure_process()
+        request_id = payload.get("id")
         line = json.dumps(payload) + "\n"
         proc.stdin.write(line.encode())
         await proc.stdin.drain()
 
         async with asyncio.timeout(self._cfg.timeout_seconds):
-            raw = await proc.stdout.readline()
-
-        if not raw:
-            raise RuntimeError(f"[{self.server_id}] Process closed stdout unexpectedly")
-        return json.loads(raw.decode())
+            while True:
+                raw = await proc.stdout.readline()
+                if not raw:
+                    raise RuntimeError(
+                        f"[{self.server_id}] Process closed stdout unexpectedly"
+                    )
+                msg = json.loads(raw.decode())
+                # Skip notifications and progress messages (no matching id)
+                if "id" in msg and msg["id"] == request_id:
+                    return msg
+                logger.debug("[%s] Skipping server message: %s", self.server_id, msg)
 
     async def _initialize(self) -> None:
         if self._initialized:
@@ -134,7 +141,6 @@ class StdioConnection(BackendConnection):
                     "params": {"name": tool_name, "arguments": arguments},
                 }
             )
-
         if "error" in resp:
             raise RuntimeError(resp["error"].get("message", "Unknown error"))
 
