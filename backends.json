@@ -21,6 +21,7 @@
         "task-master-ai"
       ],
       "env": {
+        "TASK_MASTER_TOOLS": "standard",
         "TASK_MASTER_ALLOW_METADATA_UPDATES": "true"
       }
     },
