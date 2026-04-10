@@ -53,8 +53,7 @@ async def main() -> None:
     )
 
     print("Result:")
-    print(result)
-    # print(json.dumps(result, indent=2, default=str))
+    print(json.dumps(result, indent=2, default=str))
 
     await manager.close_all()
 
