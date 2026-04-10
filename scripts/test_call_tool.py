@@ -25,31 +25,36 @@ async def main() -> None:
     raw = json.loads(BACKENDS_JSON.read_text())
     config = BackendsConfig.model_validate(raw)
     config = resolve_config(config)
+    
 
     manager = ConnectionManager()
     for server_id, cfg in config.servers.items():
         manager.register(server_id, cfg)
+        
+    server_id = "chrome-devtools"
+    tool_name = "new_page"
 
-    # Arguments for add_task
     arguments = {
-        "projectRoot": str(ROOT),
-        "prompt": "create a pylint config file for this project",
+        "url":"https://www.google.com",
+        # "projectRoot": str(ROOT),
+        # "prompt": "create a pylint config file for this project",
     }
 
     print(
-        f"Calling taskmaster-ai/add_task with arguments:\n{json.dumps(arguments, indent=2)}\n"
+        f"Calling {server_id}/{tool_name} with arguments:\n{json.dumps(arguments, indent=2)}\n"
     )
 
     result = await call_tool(
-        server="taskmaster-ai",
-        tool_name="add_task",
+        server=server_id,
+        tool_name=tool_name,
         arguments=arguments,
         manager=manager,
         catalog_path=CATALOG_JSON,
     )
 
     print("Result:")
-    print(json.dumps(result, indent=2, default=str))
+    print(result)
+    # print(json.dumps(result, indent=2, default=str))
 
     await manager.close_all()
 

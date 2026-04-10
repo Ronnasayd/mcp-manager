@@ -146,7 +146,7 @@ class StdioConnection(BackendConnection):
 
         result = resp.get("result", {})
         content = result.get("content", result)
-        return content
+        return json.dumps(content) if isinstance(content, (dict, list)) else content
 
     async def close(self) -> None:
         if self._proc and self._proc.returncode is None:
