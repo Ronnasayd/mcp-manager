@@ -2,7 +2,10 @@
   "servers": {
     "sequentialthinking": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
       "type": "stdio"
     },
     "taskmaster-ai": {
@@ -22,6 +25,15 @@
         "TASK_MASTER_ALLOW_METADATA_UPDATES": "true"
       }
     },
+    "burp": {
+      "command": "java",
+      "args": [
+        "-jar",
+        "/home/ronnas/mcp-proxy.jar",
+        "--sse-url",
+        "http://127.0.0.1:9876/"
+      ]
+    },
     "my-mcp-server": {
       "type": "stdio",
       "command": "my_mcp_server",
@@ -33,7 +45,9 @@
     },
     "chrome-devtools": {
       "command": "npx",
-      "args": ["chrome-devtools-mcp@latest"]
+      "args": [
+        "chrome-devtools-mcp@latest"
+      ]
     },
     "exa": {
       "type": "http",
@@ -41,17 +55,24 @@
     },
     "next-devtools": {
       "command": "npx",
-      "args": ["-y", "next-devtools-mcp@latest"]
+      "args": [
+        "-y",
+        "next-devtools-mcp@latest"
+      ]
     },
     "a11y": {
       "command": "npx",
-      "args": ["a11y-mcp"],
+      "args": [
+        "a11y-mcp"
+      ],
       "disabled": false,
       "autoApprove": []
     },
     "playwright": {
       "command": "npx",
-      "args": ["@playwright/mcp@latest"]
+      "args": [
+        "@playwright/mcp@latest"
+      ]
     },
     "csv-editor": {
       "command": "/home/ronnas/develop/public/csv-editor/venv/bin/csv-editor",
@@ -64,15 +85,23 @@
     },
     "html-to-markdown": {
       "command": "npx",
-      "args": ["html-to-markdown-mcp"]
+      "args": [
+        "html-to-markdown-mcp"
+      ]
     },
     "json-mcp-filter": {
       "command": "npx",
-      "args": ["-y", "json-mcp-filter@latest"]
+      "args": [
+        "-y",
+        "json-mcp-filter@latest"
+      ]
     },
     "large-file": {
       "command": "npx",
-      "args": ["-y", "@willianpinho/large-file-mcp"]
+      "args": [
+        "-y",
+        "@willianpinho/large-file-mcp"
+      ]
     }
   }
 }
