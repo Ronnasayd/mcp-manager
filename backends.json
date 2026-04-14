@@ -22,15 +22,6 @@
         "TASK_MASTER_ALLOW_METADATA_UPDATES": "true"
       }
     },
-    "burp": {
-      "command": "java",
-      "args": [
-        "-jar",
-        "/home/ronnas/mcp-proxy.jar",
-        "--sse-url",
-        "http://127.0.0.1:9876/"
-      ]
-    },
     "my-mcp-server": {
       "type": "stdio",
       "command": "my_mcp_server",
