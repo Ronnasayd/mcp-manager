@@ -136,6 +136,25 @@ def build_mcp_server(config_path: Path, catalog_path: Path):
 
         return _list(manager, catalog_path=catalog_path)
 
+    # -----------------------------------------------------------------------
+    # Tool 5: get_tools_by_server
+    # -----------------------------------------------------------------------
+    @mcp.tool()
+    def get_tools_by_server(server: str) -> list[dict[str, Any]]:
+        """
+        Get all tools available for a specific server.
+
+        Args:
+            server: Backend server ID (e.g., "github", "context7")
+
+        Returns:
+            List of tools with name and description for the server.
+            Returns empty list if server is not found.
+        """
+        from src.tools.get_tools_by_server import get_tools_by_server as _get_tools
+
+        return _get_tools(server, catalog_path=catalog_path)
+
     return mcp, manager
 
 

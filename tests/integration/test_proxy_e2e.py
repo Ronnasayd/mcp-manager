@@ -6,10 +6,12 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
+
 from src.backends.connection_manager import ConnectionManager
 from src.catalog.schema import Catalog, CatalogBackend, CatalogTool
 from src.tools.call_tool import call_tool
 from src.tools.get_tool_schema import get_tool_schema
+from src.tools.get_tools_by_server import get_tools_by_server
 from src.tools.list_servers import list_servers
 from src.tools.search_tools import invalidate_catalog_cache, search_tools
 
@@ -165,6 +167,36 @@ class TestListServers:
         result = list_servers(manager, catalog_path=catalog_path)
         for r in result:
             assert r["status"] in ("ready", "initializing", "error")
+
+
+class TestGetToolsByServer:
+    def test_returns_tools_for_valid_server(self, catalog_path):
+        result = get_tools_by_server("server_a", catalog_path=catalog_path)
+        assert isinstance(result, list)
+        assert len(result) == 2
+        names = [t["name"] for t in result]
+        assert "search_records" in names
+        assert "create_record" in names
+
+    def test_returns_empty_list_for_invalid_server(self, catalog_path):
+        result = get_tools_by_server("nonexistent", catalog_path=catalog_path)
+        assert isinstance(result, list)
+        assert len(result) == 0
+
+    def test_response_includes_name_and_description(self, catalog_path):
+        result = get_tools_by_server("server_b", catalog_path=catalog_path)
+        assert len(result) > 0
+        for tool in result:
+            assert "name" in tool
+            assert "description" in tool
+            assert isinstance(tool["name"], str)
+            assert isinstance(tool["description"], str)
+
+    def test_correct_tool_count(self, catalog_path):
+        result_a = get_tools_by_server("server_a", catalog_path=catalog_path)
+        result_b = get_tools_by_server("server_b", catalog_path=catalog_path)
+        assert len(result_a) == 2
+        assert len(result_b) == 3
 
 
 class TestFullWorkflow:
