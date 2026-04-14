@@ -1,6 +1,6 @@
 # mcp-manager
 
-An MCP proxy server that wraps multiple MCP backends and exposes a **searchable tool catalog** through 4 lightweight tools. Instead of loading full tool schemas (8,000–20,000+ tokens) from every backend on each request, models can discover and call tools on demand.
+An MCP proxy server that wraps multiple MCP backends and exposes a **searchable tool catalog** through 5 lightweight tools. Instead of loading full tool schemas (8,000–20,000+ tokens) from every backend on each request, models can discover and call tools on demand.
 
 ## How It Works
 
@@ -8,22 +8,24 @@ An MCP proxy server that wraps multiple MCP backends and exposes a **searchable 
 LLM / MCP Client
       │
       ▼
-┌─────────────────────────────────────┐
-│          mcp-manager (proxy)        │
-│  search_tools  │  get_tool_schema   │
-│  call_tool     │  list_servers      │
-└────────────────┬────────────────────┘
-                 │
-     ┌───────────┼───────────┐
-     ▼           ▼           ▼
-  context7    github     filesystem
-  (HTTP)     (stdio)      (stdio)
+┌───────────────────────────────────────────────┐
+│          mcp-manager (proxy)                  │
+│  search_tools  │  get_tool_schema             │
+│  call_tool     │  list_servers                │
+│  get_tools_by_server                         │
+└───────────────┬─────────────────────────────┘
+                │
+     ┌──────────┼──────────┐
+     ▼          ▼          ▼
+  context7   github    filesystem
+  (HTTP)    (stdio)     (stdio)
 ```
 
 1. The model calls `search_tools` to find relevant tools by name/description
 2. The model calls `get_tool_schema` to retrieve the full input schema for a specific tool
 3. The model calls `call_tool` to execute the tool on the backend server
-4. Backend connections are spawned lazily and cached; idle connections are killed after 5 minutes
+4. The model calls `get_tools_by_server` to get all tools available on a specific backend
+5. Backend connections are spawned lazily and cached; idle connections are killed after 5 minutes
 
 ---
 
@@ -150,7 +152,7 @@ Environment variable overrides: `MCP_PROXY_TRANSPORT`, `MCP_PROXY_PORT`.
 
 ---
 
-## The 4 Proxy Tools
+## The 5 Proxy Tools
 
 ### `search_tools`
 
@@ -249,6 +251,33 @@ List all configured backends and their status.
     "status": "ready",
     "tool_count": 5,
     "last_cataloged_at": "2026-03-26T10:00:00"
+  }
+]
+```
+
+---
+
+### `get_tools_by_server`
+
+Get all tools available for a specific backend server.
+
+```json
+{
+  "server": "github"
+}
+```
+
+**Returns:**
+
+```json
+[
+  {
+    "name": "search_repositories",
+    "description": "Search for repositories on GitHub"
+  },
+  {
+    "name": "get_user_profile",
+    "description": "Get a user's GitHub profile information"
   }
 ]
 ```
