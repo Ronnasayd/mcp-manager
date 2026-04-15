@@ -66,13 +66,12 @@
       ]
     },
     "csv-editor": {
-      "command": "/home/ronnas/develop/public/csv-editor/venv/bin/csv-editor",
-      "args": [],
-      "env": {
-        "CSV_MAX_FILE_SIZE": "1024",
-        "CSV_SESSION_TIMEOUT": "60",
-        "CSV_MAX_SESSIONS": "10"
-      }
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/santoshray02/csv-editor",
+        "csv-editor"
+      ]
     },
     "html-to-markdown": {
       "command": "npx",
