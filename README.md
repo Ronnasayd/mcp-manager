@@ -106,7 +106,7 @@ Values using `${env:VAR_NAME}` are replaced with the corresponding environment v
 Before starting the server, build the tool catalog. This queries all backends and snapshots their tool schemas into `catalog.json`:
 
 ```bash
-python -m src.catalog.builder --config backends.json --output catalog.json
+python -m src.catalog.builder --config src/config/backends.json --catalog catalog.json
 ```
 
 Or pass `--build-catalog` when starting the server to build it automatically:
@@ -156,7 +156,7 @@ Environment variable overrides: `MCP_PROXY_TRANSPORT`, `MCP_PROXY_PORT`.
 
 ### `search_tools`
 
-Fuzzy-search the catalog by tool name or description.
+Semantic vector search over the catalog by tool name or description.
 
 ```json
 {
@@ -174,7 +174,7 @@ Fuzzy-search the catalog by tool name or description.
     "name": "search_files",
     "key": "filesystem/search_files",
     "description": "Search for files matching a pattern",
-    "score": 0.91
+    "score": 91.4
   }
 ]
 ```

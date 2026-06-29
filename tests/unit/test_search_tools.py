@@ -1,4 +1,4 @@
-"""Unit tests for the fuzzy search implementation."""
+"""Unit tests for the vector similarity search implementation."""
 
 from __future__ import annotations
 
@@ -7,11 +7,11 @@ from pathlib import Path
 
 import pytest
 from src.catalog.schema import Catalog, CatalogBackend, CatalogTool
+from src.catalog.vector_store import build_index
 from src.tools.search_tools import invalidate_catalog_cache, search_tools
 
 
-def _write_catalog(path: Path, tools: list[dict]) -> None:
-    """Helper: write a catalog.json with given tool dicts."""
+def _build_catalog(tools: list[dict]) -> Catalog:
     catalog_tools = [
         CatalogTool(
             server_id=t["server_id"],
@@ -28,8 +28,14 @@ def _write_catalog(path: Path, tools: list[dict]) -> None:
         CatalogBackend(id=sid, name=sid, type="http", tools=tool_list)
         for sid, tool_list in backends_by_server.items()
     ]
-    catalog = Catalog(backends=backends)
+    return Catalog(backends=backends)
+
+
+def _write_db(path: Path, tools: list[dict]) -> None:
+    """Write catalog.json and catalog.db for the given tool dicts."""
+    catalog = _build_catalog(tools)
     path.write_text(catalog.model_dump_json())
+    build_index(catalog, path.with_suffix(".db"))
 
 
 @pytest.fixture(autouse=True)
@@ -42,7 +48,7 @@ def reset_cache():
 def test_exact_match():
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
         path = Path(f.name)
-    _write_catalog(
+    _write_db(
         path,
         [
             {
@@ -60,31 +66,38 @@ def test_exact_match():
     results = search_tools("database_query", catalog_path=path)
     assert results, "Expected at least one result"
     assert results[0]["name"] == "database_query"
-    assert results[0]["score"] >= 0.95
+    # Cosine similarity for an exact name match is typically 85-95
+    assert results[0]["score"] >= 70
 
 
-def test_typo_match():
+def test_semantic_match():
+    """Vector search finds semantically related tools even without lexical overlap."""
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
         path = Path(f.name)
-    _write_catalog(
+    _write_db(
         path,
         [
             {
                 "server_id": "db",
-                "name": "database_query",
-                "description": "Query the database",
+                "name": "fetch_records",
+                "description": "fetch data from db",
+            },
+            {
+                "server_id": "other",
+                "name": "unrelated_tool",
+                "description": "does something else entirely",
             },
         ],
     )
-    results = search_tools("databse_query", catalog_path=path)
-    assert results, "Expected at least one result for typo query"
-    assert results[0]["score"] > 0.7
+    results = search_tools("retrieve data", catalog_path=path)
+    names = [r["name"] for r in results]
+    assert "fetch_records" in names
 
 
 def test_description_match():
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
         path = Path(f.name)
-    _write_catalog(
+    _write_db(
         path,
         [
             {
@@ -107,14 +120,13 @@ def test_description_match():
 def test_no_match_returns_empty():
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
         path = Path(f.name)
-    _write_catalog(
+    _write_db(
         path,
         [
             {"server_id": "s", "name": "tool_a", "description": "does something"},
         ],
     )
     results = search_tools("xyznonexistent99zzz", catalog_path=path)
-    # May return low-score results; exact empty is not guaranteed, but score should be low
     for r in results:
         assert r["score"] < 50, f"Expected low score, got {r['score']}"
 
@@ -126,7 +138,7 @@ def test_max_results_limit():
         {"server_id": "s", "name": f"tool_{i}", "description": f"tool number {i}"}
         for i in range(50)
     ]
-    _write_catalog(path, tools)
+    _write_db(path, tools)
     results = search_tools("tool", max_results=2, catalog_path=path)
     assert len(results) <= 2
 
@@ -134,7 +146,7 @@ def test_max_results_limit():
 def test_collision_same_name_different_servers():
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
         path = Path(f.name)
-    _write_catalog(
+    _write_db(
         path,
         [
             {"server_id": "server1", "name": "search", "description": "search items"},
@@ -152,6 +164,7 @@ def test_empty_catalog_returns_empty():
         path = Path(f.name)
     catalog = Catalog(backends=[])
     path.write_text(catalog.model_dump_json())
+    # No .db written — vector store missing → empty result
     results = search_tools("anything", catalog_path=path)
     assert results == []
 
@@ -165,7 +178,7 @@ def test_missing_catalog_returns_empty():
 def test_result_has_expected_keys():
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
         path = Path(f.name)
-    _write_catalog(
+    _write_db(
         path, [{"server_id": "s", "name": "my_tool", "description": "does stuff"}]
     )
     results = search_tools("my_tool", catalog_path=path)

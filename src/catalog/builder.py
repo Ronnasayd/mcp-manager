@@ -18,6 +18,7 @@ from src.catalog.schema import (
     CatalogBackend,
     CatalogTool,
 )
+from src.catalog.vector_store import build_index
 
 logger = logging.getLogger(__name__)
 
@@ -244,6 +245,10 @@ async def build_catalog(config_path: Path, catalog_path: Path) -> Catalog:
     logger.info(
         "Catalog written to %s (%d total tools)", catalog_path, len(catalog.all_tools())
     )
+
+    db_path = catalog_path.with_suffix(".db")
+    build_index(catalog, db_path)
+
     return catalog
 
 
