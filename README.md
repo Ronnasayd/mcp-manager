@@ -106,7 +106,7 @@ Values using `${env:VAR_NAME}` are replaced with the corresponding environment v
 Before starting the server, build the tool catalog. This queries all backends and snapshots their tool schemas into `catalog.json`:
 
 ```bash
-python -m src.catalog.builder --config src/config/backends.json --catalog catalog.json
+python -m src.catalog.builder --config backends.json --catalog catalog.json
 ```
 
 Or pass `--build-catalog` when starting the server to build it automatically:
