@@ -183,20 +183,4 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
 catalog.json
-.gemini/
-.agentsignore
-.skillsignore
-.claude/skills/*
-.claude/commands/*
-.claude/instructions/*
-.claude/agents/*
-.claude/hooks/*
-.claude/context-refs.json
-.claude/skills/skills.db
-.rulesignore
-.agents/skills/*
-skills-lock.json
-.specs/*
-.mcp.json
-docs/plans/*
 catalog.db

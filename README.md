@@ -309,6 +309,46 @@ Add mcp-manager to your Claude Desktop config (`~/.config/claude/claude_desktop_
 
 ---
 
+## Claude Code Hook
+
+`hooks/mcp_manager_context.py` injects an `additionalContext` block explaining
+how mcp-manager works, the current server/tool-count table (read live from
+`catalog.json`), and the discover → schema → call flow. Wire it into both
+`SessionStart` and `UserPromptSubmit` in `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /path/to/mcp-manager/hooks/mcp_manager_context.py /path/to/mcp-manager/catalog.json"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /path/to/mcp-manager/hooks/mcp_manager_context.py /path/to/mcp-manager/catalog.json"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The script takes the path to `catalog.json` as its only argument, so the
+server/tool table always reflects the latest [catalog build](#building-catalog)
+without editing the hook itself.
+
+---
+
 ## Development
 
 ### Run tests
