@@ -324,7 +324,7 @@ how mcp-manager works, the current server/tool-count table (read live from
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /path/to/mcp-manager/hooks/mcp_manager_context.py /path/to/mcp-manager/catalog.json"
+            "command": "uvx --from git+https://github.com/Ronnasayd/mcp-manager.git mcp_manager_context /path/to/mcp-manager/catalog.json"
           }
         ]
       }
@@ -334,7 +334,7 @@ how mcp-manager works, the current server/tool-count table (read live from
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /path/to/mcp-manager/hooks/mcp_manager_context.py /path/to/mcp-manager/catalog.json"
+            "command": "uvx --from git+https://github.com/Ronnasayd/mcp-manager.git mcp_manager_context /path/to/mcp-manager/catalog.json"
           }
         ]
       }
