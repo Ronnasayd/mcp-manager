@@ -56,15 +56,17 @@ def build_context(catalog_path: str | None) -> str:
 
 def main() -> None:
     """Read the hook's stdin payload, then emit additionalContext as JSON."""
+    hook_event_name = "UserPromptSubmit"
     try:
-        json.load(sys.stdin)
+        payload = json.load(sys.stdin)
+        hook_event_name = payload.get("hook_event_name", hook_event_name)
     except (json.JSONDecodeError, ValueError):
         pass
 
     catalog_path = sys.argv[1] if len(sys.argv) > 1 else None
     output = {
         "hookSpecificOutput": {
-            "hookEventName": "UserPromptSubmit",
+            "hookEventName": hook_event_name,
             "additionalContext": build_context(catalog_path),
         }
     }
