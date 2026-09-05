@@ -32,6 +32,7 @@ LLM / MCP Client
 ## Requirements
 
 - Python 3.11+
+- [uv](https://docs.astral.sh/uv/)
 - Node.js (for stdio backends using `npx`)
 
 ---
@@ -39,17 +40,14 @@ LLM / MCP Client
 ## Installation
 
 ```bash
-# Clone and enter the project
 git clone <repo-url>
 cd mcp-manager
 
-# Create a virtual environment
-python -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+# Create the venv and install all deps (incl. dev) from uv.lock
+uv sync
 ```
+
+Run any command with `uv run <cmd>` (no manual venv activation needed).
 
 ---
 
@@ -106,13 +104,13 @@ Values using `${env:VAR_NAME}` are replaced with the corresponding environment v
 Before starting the server, build the tool catalog. This queries all backends and snapshots their tool schemas into `catalog.json`:
 
 ```bash
-python -m src.catalog.builder --config backends.json --catalog catalog.json
+uv run catalog-builder --config backends.json --catalog catalog.json
 ```
 
 Or pass `--build-catalog` when starting the server to build it automatically:
 
 ```bash
-python -m src.proxy.server --build-catalog
+uv run mcp-manager --build-catalog
 ```
 
 ---
@@ -122,7 +120,7 @@ python -m src.proxy.server --build-catalog
 ### stdio mode (default — for MCP clients like Claude Desktop)
 
 ```bash
-python -m src.proxy.server \
+uv run mcp-manager \
   --config backends.json \
   --catalog catalog.json \
   --transport stdio
@@ -131,7 +129,7 @@ python -m src.proxy.server \
 ### SSE/HTTP mode
 
 ```bash
-python -m src.proxy.server \
+uv run mcp-manager \
   --config backends.json \
   --catalog catalog.json \
   --transport sse \
@@ -292,10 +290,10 @@ Add mcp-manager to your Claude Desktop config (`~/.config/claude/claude_desktop_
 {
   "mcpServers": {
     "mcp-manager": {
-      "command": "/path/to/venv/bin/python",
+      "command": "uv",
       "args": [
-        "-m",
-        "src.proxy.server",
+        "run",
+        "mcp-manager",
         "--config",
         "/path/to/mcp-manager/backends.json",
         "--catalog",
@@ -354,17 +352,16 @@ without editing the hook itself.
 ### Run tests
 
 ```bash
-# Install dev dependencies
-pip install -r requirements-dev.txt
+# Dev deps are already installed by `uv sync`
 
 # Run all tests
-pytest
+uv run pytest
 
 # Run with verbose output
-pytest -v
+uv run pytest -v
 
 # Run a specific test file
-pytest tests/unit/test_search_tools.py -v
+uv run pytest tests/unit/test_search_tools.py -v
 ```
 
 ### Project structure

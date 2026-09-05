@@ -1,3 +1,3 @@
 #!/bin/bash
 burp &
-python -m src.catalog.builder --config backends.json
+uv run catalog-builder --config backends.json

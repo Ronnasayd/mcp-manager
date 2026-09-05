@@ -1,11 +1,31 @@
 {
   "servers": {
+    "blender": {
+      "command": "uvx",
+      "args": ["blender-mcp"]
+    },
+    "mobile-mcp": {
+      "command": "npx",
+      "args": ["-y", "@mobilenext/mobile-mcp@latest"],
+      "env": {
+        "MOBILEMCP_DISABLE_TELEMETRY": "1"
+      }
+    },
+    "expo": {
+      "type": "http",
+      "url": "https://mcp.expo.dev/mcp"
+    },
+    "notebooklm": {
+      "command": "npx",
+      "args": ["notebooklm-mcp@latest"]
+    },
+    "iconify": {
+      "command": "npx",
+      "args": ["-y", "iconify-mcp-server@latest"]
+    },
     "sequentialthinking": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-sequential-thinking"
-      ],
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
       "type": "stdio"
     },
     "taskmaster-ai": {
@@ -27,9 +47,7 @@
     },
     "chrome-devtools": {
       "command": "npx",
-      "args": [
-        "chrome-devtools-mcp@latest"
-      ]
+      "args": ["chrome-devtools-mcp@latest"]
     },
     "exa": {
       "type": "http",
@@ -37,24 +55,17 @@
     },
     "next-devtools": {
       "command": "npx",
-      "args": [
-        "-y",
-        "next-devtools-mcp@latest"
-      ]
+      "args": ["-y", "next-devtools-mcp@latest"]
     },
     "a11y": {
       "command": "npx",
-      "args": [
-        "a11y-mcp"
-      ],
+      "args": ["a11y-mcp"],
       "disabled": false,
       "autoApprove": []
     },
     "playwright": {
       "command": "npx",
-      "args": [
-        "@playwright/mcp@latest"
-      ]
+      "args": ["@playwright/mcp@latest"]
     },
     "csv-editor": {
       "command": "uvx",
@@ -66,23 +77,15 @@
     },
     "html-to-markdown": {
       "command": "npx",
-      "args": [
-        "html-to-markdown-mcp"
-      ]
+      "args": ["html-to-markdown-mcp"]
     },
     "json-mcp-filter": {
       "command": "npx",
-      "args": [
-        "-y",
-        "json-mcp-filter@latest"
-      ]
+      "args": ["-y", "json-mcp-filter@latest"]
     },
     "large-file": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@willianpinho/large-file-mcp"
-      ]
+      "args": ["-y", "@willianpinho/large-file-mcp"]
     },
     "burp": {
       "command": "java",
@@ -95,10 +98,7 @@
     },
     "gcloud": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@google-cloud/gcloud-mcp"
-      ]
+      "args": ["-y", "@google-cloud/gcloud-mcp"]
     }
   }
 }

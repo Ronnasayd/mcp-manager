@@ -1,33 +1,40 @@
-[tool.poetry]
+[project]
 name = "mcp-manager"
 version = "0.1.0"
 description = "MCP manager server with searchable tool catalog"
-authors = ["Ronnasayd Machado"]
+authors = [{ name = "Ronnasayd Machado" }]
 readme = "README.md"
-packages = [{include = "src"}]
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=2.0",
+    "fastembed>=0.4.0",
+    "pydantic>=2.0",
+    "httpx>=0.28.1",
+    "anyio>=4.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-fastmcp = "^2.0"
-fastembed = ">=0.4.0"
-pydantic = "^2.0"
-httpx = ">=0.28.1"
-anyio = "^4.0"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^7.0"
-pytest-asyncio = "^0.23.0"
-pytest-mock = "^3.12.0"
-
-[tool.poetry.scripts]
+[project.scripts]
 mcp-manager = "src.proxy.server:main"
 catalog-builder = "src.catalog.builder:main"
 mcp_manager_context = "src.hooks.mcp_manager_context:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-mock>=3.12.0",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "README.md", "pyproject.toml"]
