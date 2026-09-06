@@ -1,5 +1,12 @@
 {
   "servers": {
+    "godot": {
+      "command": "npx",
+      "args": ["-y", "@coding-solo/godot-mcp"],
+      "env": {
+        "GODOT_PATH": "/usr/local/bin/godot4"
+      }
+    },
     "magick": {
       "type": "stdio",
       "command": "/home/ronnas/.cargo/bin/magick-mcp",
