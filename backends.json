@@ -1,5 +1,10 @@
 {
   "servers": {
+    "magick": {
+      "type": "stdio",
+      "command": "/home/ronnas/.cargo/bin/magick-mcp",
+      "args": ["mcp"]
+    },
     "image-tools": {
       "command": "/usr/local/bin/image-tools-mcp-v1.3.0-linux-amd64"
     },
