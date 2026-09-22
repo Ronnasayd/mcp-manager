@@ -4,18 +4,21 @@ from __future__ import annotations
 
 import logging
 import time
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from src.backends.connection_manager import ConnectionManager
 from src.tools.search_tools import DEFAULT_CATALOG_PATH, load_catalog
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from src.backends.connection_manager import ConnectionManager
 
 logger = logging.getLogger(__name__)
 
 
 def _validate_arguments(input_schema: dict, arguments: dict) -> list[str]:
-    """
-    Minimal JSON Schema validation: check required fields and basic types.
+    """Minimal JSON Schema validation: check required fields and basic types.
+
     Returns a list of error messages (empty = valid).
     """
     errors: list[str] = []
@@ -24,18 +27,20 @@ def _validate_arguments(input_schema: dict, arguments: dict) -> list[str]:
         return errors
 
     required = input_schema.get("required", [])
-    for field in required:
-        if field not in arguments:
-            errors.append(f"Missing required argument: '{field}'")
+    errors.extend(
+        f"Missing required argument: '{field}'"
+        for field in required
+        if field not in arguments
+    )
 
     properties = input_schema.get("properties", {})
-    type_map = {
-        "string": str,
-        "integer": int,
+    type_map: dict[str, tuple[type, ...]] = {
+        "string": (str,),
+        "integer": (int,),
         "number": (int, float),
-        "boolean": bool,
-        "array": list,
-        "object": dict,
+        "boolean": (bool,),
+        "array": (list,),
+        "object": (dict,),
     }
 
     for key, value in arguments.items():
@@ -45,8 +50,17 @@ def _validate_arguments(input_schema: dict, arguments: dict) -> list[str]:
         expected_type_str = prop_schema.get("type")
         if not expected_type_str:
             continue
-        expected_py_type = type_map.get(expected_type_str)
-        if expected_py_type and not isinstance(value, expected_py_type):
+        allowed_type_strs = (
+            expected_type_str
+            if isinstance(expected_type_str, list)
+            else [expected_type_str]
+        )
+        expected_py_types_tuple: tuple[type, ...] = tuple(
+            py_type
+            for allowed_type_str in allowed_type_strs
+            for py_type in type_map.get(allowed_type_str, ())
+        )
+        if expected_py_types_tuple and not isinstance(value, expected_py_types_tuple):
             errors.append(
                 f"Argument '{key}': expected type {expected_type_str}, "
                 f"got {type(value).__name__}"
@@ -62,8 +76,7 @@ async def call_tool(
     manager: ConnectionManager,
     catalog_path: Path = DEFAULT_CATALOG_PATH,
 ) -> dict[str, Any]:
-    """
-    Execute a tool on a backend server.
+    """Execute a tool on a backend server.
 
     Returns:
         {
