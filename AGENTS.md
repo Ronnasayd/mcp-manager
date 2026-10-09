@@ -1,20 +1,21 @@
 <!-- INIT:AUTO-GENERATED-CONTEXT:DO-NOT-MODIFY -->
 
-## Linters
+## Mandatory rules that must always be followed
 
-- For `python` files use ruff+pylint
-- For `javascript/typescript` files use eslint
+- Every user question → interactive tool, never plain text. Claude:
+  `AskUserQuestion`. Multiple questions: `grilling` skill.
 
-## Always Use Interactive Question Tools
+- When task list exists (multi-step work), use `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate` to give user feedback. Mark tasks complete as done, don't batch.
 
-Every user question → interactive tool, never plain text. Claude:
-`AskUserQuestion`. Multiple questions: `grilling` skill.
+- Whenever you modify a component or screen → run tests using Playwright (or a similar E2E tool) before finalizing.
 
-## Task Tracking
+- Whenever lint, type, or test errors are reported, fix them, even if they were not caused by your changes.
 
-When task list exists (multi-step work), use `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate` to give user feedback. Mark tasks complete as done, don't batch.
+- Never treat documentation (`markdown files`,`memories`) as absolute truth. Only the implemented code should be treated as the truth.
 
-## Relevant Skills
+- Never assume the code is correct without tests to validate it.
+
+## Commonly used skills
 
 | When                                                   | Use                                          |
 | ------------------------------------------------------ | -------------------------------------------- |
@@ -32,6 +33,7 @@ When task list exists (multi-step work), use `TaskCreate`, `TaskGet`, `TaskList`
 | Generate a plan step-by-step                           | `sd-planning`                                |
 | Build requirements review table from spec/design/tasks | `spec-to-requirements-table`                 |
 | Pick between technical options (pros/cons)             | `technical-decision-helper`                  |
+| Map files/deps/tests a task touches before changing    | `context-map`                                |
 
 ## Context-Specific Rules
 

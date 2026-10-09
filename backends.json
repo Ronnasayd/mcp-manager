@@ -26,10 +26,6 @@
         "MOBILEMCP_DISABLE_TELEMETRY": "1"
       }
     },
-    "expo": {
-      "type": "http",
-      "url": "https://mcp.expo.dev/mcp"
-    },
     "notebooklm": {
       "command": "npx",
       "args": ["notebooklm-mcp@latest"]
@@ -102,18 +98,20 @@
       "command": "npx",
       "args": ["-y", "@willianpinho/large-file-mcp"]
     },
-    "burp": {
-      "command": "java",
+    "laya": {
+      "type": "stdio",
+      "command": "uvx",
       "args": [
-        "-jar",
-        "/home/ronnas/mcp-proxy.jar",
-        "--sse-url",
-        "http://127.0.0.1:9876/"
-      ]
-    },
-    "gcloud": {
-      "command": "npx",
-      "args": ["-y", "@google-cloud/gcloud-mcp"]
+        "--torch-backend",
+        "cpu",
+        "--from",
+        "laya[mcp]",
+        "laya-mcp-server"
+      ],
+      "env": {
+        "LAYA_DEVICE": "cpu",
+        "LAYA_PRELOAD": "0"
+      }
     }
   }
 }
