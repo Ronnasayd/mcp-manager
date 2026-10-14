@@ -1,5 +1,18 @@
 {
   "servers": {
+    "codebase-memory": {
+      "command": "codebase-memory-mcp"
+    },
+    "serena": {
+      "type": "stdio",
+      "command": "serena",
+      "args": [
+        "start-mcp-server",
+        "--context=claude-code",
+        "--project-from-cwd"
+      ],
+      "env": {}
+    },
     "godot": {
       "command": "npx",
       "args": ["-y", "@coding-solo/godot-mcp"],
