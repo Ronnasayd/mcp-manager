@@ -1,6 +1,12 @@
 {
   "servers": {
+    "rag-rat": {
+      "type": "stdio",
+      "command": "rag-rat",
+      "args": ["mcp"]
+    },
     "codebase-memory": {
+      "type": "stdio",
       "command": "codebase-memory-mcp"
     },
     "serena": {
