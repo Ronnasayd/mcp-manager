@@ -29,6 +29,10 @@ dev = [
 asyncio_mode = "auto"
 testpaths = ["tests"]
 
+[tool.mypy]
+explicit_package_bases = true
+mypy_path = "."
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

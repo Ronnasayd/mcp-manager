@@ -80,6 +80,8 @@ class StdioConnection(BackendConnection):
 
     async def _send(self, payload: dict) -> dict:
         proc = await self._ensure_process()
+        if proc.stdin is None or proc.stdout is None:
+            raise RuntimeError(f"[{self.server_id}] Process has no stdin/stdout pipes")
         request_id = payload.get("id")
         line = json.dumps(payload) + "\n"
         proc.stdin.write(line.encode())
@@ -116,6 +118,8 @@ class StdioConnection(BackendConnection):
         logger.debug("[%s] initialize response: %s", self.server_id, resp)
 
         proc = self._proc
+        if proc is None or proc.stdin is None:
+            raise RuntimeError(f"[{self.server_id}] Process has no stdin pipe")
         notif = (
             json.dumps(
                 {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}
@@ -152,7 +156,8 @@ class StdioConnection(BackendConnection):
         if self._proc and self._proc.returncode is None:
             logger.info("[%s] Closing stdio process", self.server_id)
             try:
-                self._proc.stdin.close()
+                if self._proc.stdin is not None:
+                    self._proc.stdin.close()
                 self._proc.kill()
                 await self._proc.wait()
             except Exception as e:

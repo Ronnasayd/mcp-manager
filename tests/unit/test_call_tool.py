@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
+import tempfile
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from src.catalog.schema import Catalog, CatalogBackend, CatalogTool
 from src.tools.call_tool import _validate_arguments, call_tool
 from src.tools.search_tools import invalidate_catalog_cache
@@ -121,6 +122,7 @@ class TestCallTool:
         )
         assert result["success"] is False
         assert "Validation failed" in result["error"]
+        assert result["expected_schema"] == schema
 
     @pytest.mark.asyncio
     async def test_missing_required_arg(self):

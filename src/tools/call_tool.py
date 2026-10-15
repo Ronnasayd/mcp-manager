@@ -78,6 +78,13 @@ async def call_tool(
 ) -> dict[str, Any]:
     """Execute a tool on a backend server.
 
+    Args:
+        server: Backend server name.
+        tool_name: Tool name on that server.
+        arguments: Arguments to pass to the tool.
+        manager: Connection manager used to reach the backend.
+        catalog_path: Path to the tool catalog.
+
     Returns:
         {
             "success": bool,
@@ -107,6 +114,7 @@ async def call_tool(
             "success": False,
             "result": None,
             "error": "Validation failed: " + "; ".join(validation_errors),
+            "expected_schema": tool.input_schema,
             "elapsed_ms": round((time.monotonic() - start) * 1000, 2),
         }
 
