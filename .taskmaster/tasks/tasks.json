@@ -41,9 +41,7 @@
         "details": "Use the command 'pylint --generate-rcfile' to generate a default .pylintrc file and place it in the project root directory. Review the generated configuration and adjust it based on the project's Python version, coding standards, and folder structure. Consult with the team to identify any specific frameworks, libraries, or conventions in use that might require enabling or disabling certain Pylint checkers. Ensure compatibility with other tooling (e.g., Black, isort) by disabling overlapping checks to prevent redundant warnings. Document any customizations in the configuration for future maintainers. Commit the .pylintrc file to version control.",
         "testStrategy": "1. Run 'pylint' against a selection of files to verify the linter executes without configuration errors. 2. Confirm that expected errors and warnings are reported, and that suppressed messages are not displayed. 3. Validate compatibility with other code quality tools such as Black or isort. 4. Seek feedback from the team to ensure the generated configuration meets their expectations and doesn't inhibit common workflows.",
         "status": "pending",
-        "dependencies": [
-          1
-        ],
+        "dependencies": [1],
         "priority": "medium",
         "subtasks": []
       },
@@ -54,9 +52,7 @@
         "details": "1. Examine the baseline .pylintrc file created in the previous task and adjust settings for clarity and maintainability.\n2. Add detailed inline comments within the .pylintrc file to explain key rule choices, disabled or enabled checkers, and any project-specific customizations.\n3. Create or update accompanying documentation (e.g., README section or a docs/code_quality.md file) to summarize how the team should use Pylint, the rationale for configuration decisions, and integration instructions with other tools (such as Black or isort).\n4. Coordinate with the development team to gather feedback and confirm the configuration supports current workflows and coding standards.\n5. Ensure that all configuration decisions are justified and reproducible for new team members.",
         "testStrategy": "1. Manually review the .pylintrc file to verify all adjustments are properly documented and justified.\n2. Review additional documentation to confirm instructions are clear and up to date.\n3. Run Pylint against representative code files using the finalized configuration to ensure no unexpected errors or suppressed rules are present.\n4. Solicit a review from at least one other team member to validate readability and understanding of both the config and associated documentation.",
         "status": "pending",
-        "dependencies": [
-          4
-        ],
+        "dependencies": [4],
         "priority": "medium",
         "subtasks": []
       },
@@ -67,9 +63,7 @@
         "details": "1. Review the baseline .pylintrc file created in the previous task and analyze its default settings in the context of the project's codebase.\n2. Meet with stakeholders or review documentation to identify any team-specific standards, frameworks (e.g., Django, Flask), or special library usages that require adjusting Pylint settings.\n3. Enable or disable specific checkers to reduce noise and enhance actionable feedback, especially where rules might conflict with tools like Black or isort.\n4. Adjust thresholds and configuration values (e.g., max-line-length, variable naming conventions, ignored-patterns) to fit the team's needs.\n5. Annotate key sections of the .pylintrc with inline comments explaining the rationale behind any non-default decisions.\n6. Save and commit the updated .pylintrc, ensuring it is placed at the project root and is easy for other contributors to locate and extend in the future.",
         "testStrategy": "1. Run 'pylint' on a representative sample of project files with the customized .pylintrc, verifying that checks execute correctly and only meaningful messages appear.\n2. Check for absence of configuration errors and ensure there are no unexpected warnings or failures due to custom settings.\n3. Validate that disabled rules (e.g., formatting issues handled by Black) are not reported and that project-specific issues (e.g., naming conventions) are enforced.\n4. Solicit feedback from team members on the clarity and effectiveness of the new configuration.\n5. Document passing and failing examples to ensure the configuration delivers intended results.",
         "status": "pending",
-        "dependencies": [
-          4
-        ],
+        "dependencies": [4],
         "priority": "medium",
         "subtasks": []
       },
@@ -80,10 +74,7 @@
         "details": "1. Use the command `pylint --generate-rcfile` to generate a default .pylintrc file in the project’s root directory.\n2. Thoroughly review the generated configuration for compatibility with the project’s Python version, frameworks (such as Django, Flask, etc.), and directory structure.\n3. Collaborate with team members or refer to the project's style guidelines to identify rules and checkers to enable or disable, especially in relation to other formatting or linter tools like Black and isort.\n4. Adjust message control settings to suppress irrelevant warnings and errors, focusing on actionable issues.\n5. Include modifications to cater for commonly used third-party libraries, custom plugins, or code patterns prevalent in the codebase.\n6. Document key rule changes with comments in the .pylintrc file to aid maintainability and facilitate team understanding.",
         "testStrategy": "1. Run 'pylint' with the new configuration file on a representative sample of project files to ensure it executes without errors or unexpected warnings.\n2. Confirm that critical expected violations (such as errors or warnings relevant to the team's standards) are flagged, while non-pertinent messages are suppressed.\n3. Verify that the configuration does not conflict with other code quality tools (run Black and isort where applicable in combination with Pylint and check results).\n4. Solicit feedback from at least one other team member on the effectiveness and clarity of the configuration.\n5. Make targeted adjustments based on initial test and feedback, rerunning the above checks until all acceptance criteria are met.",
         "status": "pending",
-        "dependencies": [
-          1,
-          4
-        ],
+        "dependencies": [1, 4],
         "priority": "medium",
         "subtasks": []
       },
@@ -94,13 +85,7 @@
         "details": "1. Use 'pylint --generate-rcfile' to create an initial .pylintrc file in the project's root directory if not already present. 2. Review existing Pylint-related tasks and integrate the finalized or customized configurations from past iterations (especially those resulting from team discussions, customization, or documentation steps).\n3. Merge any key rule adjustments, suppression lists, or formatting integrations (e.g., with Black, isort) into the .pylintrc, ensuring consistency with documented decisions.\n4. Commit the finalized file to version control, following repository standards for documenting configuration changes in commit messages (e.g., reference task numbers, summarize key customizations).\n5. Coordinate with the team if further feedback is needed before the file is marked as the official linter configuration.",
         "testStrategy": "1. Validate that the committed .pylintrc file is present in the project root and readable by running 'pylint' on sample modules or packages, ensuring there are no file not found or syntax errors. 2. Confirm the configuration enforces only the intended rules by explicitly triggering test errors (e.g., import style violation or missing docstring) and ensuring the correct checks are reported or suppressed. 3. Cross-check that the configuration integrates appropriately with other code quality tools (run Black, isort, and Pylint in sequence). 4. Review git history to ensure changes are clearly documented and reference related tasks. 5. Solicit feedback from a team member or reviewer to verify that all necessary customizations have been captured.",
         "status": "pending",
-        "dependencies": [
-          1,
-          4,
-          5,
-          6,
-          7
-        ],
+        "dependencies": [1, 4, 5, 6, 7],
         "priority": "medium",
         "subtasks": []
       },
@@ -111,14 +96,7 @@
         "details": "1. Review previous iterations of .pylintrc files and team feedback regarding rule customizations, compatibility with tools like Black and isort, and documented conventions. 2. Aggregate final configuration options from discussions, documentation (including changes from earlier customization and documentation tasks), and team-wide requirements. 3. Use `pylint --generate-rcfile` to regenerate a default file if substantial changes are needed, then merge in prior customizations. 4. Update or annotate the .pylintrc file with clear comments explaining enabled/disabled checkers and relevant integrations. 5. Ensure compatibility with project structure, Python version, and any frameworks in use. 6. Commit the finalized .pylintrc file to version control at the project root, replacing previous configs as necessary. 7. Communicate updates to all team members and update documentation to reflect current configuration and usage instructions.",
         "testStrategy": "1. Validate that the finalized .pylintrc file exists in the project root and is being used by default when running Pylint. 2. Run Pylint on a representative subset of modules/packages to ensure the linter operates without errors and enforces the intended ruleset. 3. Deliberately trigger errors/warnings that should and should not be reported, verifying configuration accuracy. 4. Check for harmonious operation alongside Black and isort, ensuring no conflicting style or import errors. 5. Confirm all comments and documentation in the config and supporting files are clear, up to date, and accessible to the team.",
         "status": "pending",
-        "dependencies": [
-          1,
-          4,
-          5,
-          6,
-          7,
-          8
-        ],
+        "dependencies": [1, 4, 5, 6, 7, 8],
         "priority": "medium",
         "subtasks": []
       },
@@ -129,15 +107,7 @@
         "details": "1. Gather all previously generated and customized .pylintrc files created in earlier configuration tasks, paying close attention to rule changes, suppression lists, and alignment with tools like Black and isort.\n2. Review feedback from team discussions, task documentation, and coding standards to decide on final rule adjustments and checkers to be enabled or disabled.\n3. Integrate key rule modifications, ensuring the configuration enforces the team's preferred linting quality while not conflicting with automated formatting tools.\n4. Add/retain explanatory comments where necessary, clarifying any project-specific customizations or deviations from default behavior.\n5. Commit the finalized .pylintrc file to the project root directory and, if applicable, update any related documentation (e.g., a code quality guide or integration notes in the README).\n6. Announce the finalized configuration to the team and ensure all contributors are aware of and able to use the standardized Pylint workflow.",
         "testStrategy": "1. Run 'pylint' using the committed .pylintrc file on multiple representative source files and modules to ensure there are no configuration or file not found errors.\n2. Intentionally trigger warnings and errors (according to the enabled rules) in sample files, verifying that the linter flags violations as expected and suppresses messages per the configuration.\n3. Validate that the configuration does not interfere with or contradict code formatting tools (e.g., Black, isort) by running them in sequence and confirming expected results.\n4. Have a team member or reviewer verify the .pylintrc content and its placement, as well as confirm documentation accurately describes configuration usage.",
         "status": "pending",
-        "dependencies": [
-          1,
-          4,
-          5,
-          6,
-          7,
-          8,
-          9
-        ],
+        "dependencies": [1, 4, 5, 6, 7, 8, 9],
         "priority": "medium",
         "subtasks": []
       }
@@ -146,6 +116,161 @@
       "created": "2026-04-09T15:12:57.267Z",
       "description": "Default tasks context",
       "updated": "2026-04-09T16:00:23.877Z"
+    }
+  },
+  "call-tool-passthrough": {
+    "tasks": [
+      {
+        "id": "1",
+        "title": "Declare mcp as a direct dependency",
+        "description": "Add `mcp>=1.29.1,<2` to `[project].dependencies` and refresh `uv.lock` (`uv lock`) in the same commit.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": [],
+        "details": "Where: `pyproject.toml`\nRequirement: CTP-17\nReuses: none\nDone when:\n- [ ] `pyproject.toml` lists `mcp>=1.29.1,<2`; `uv.lock` changed in the same commit\n- [ ] `uv run python -c \"import mcp.types\"` succeeds\n- [ ] Gate check passes: `uv run pytest -q tests/unit` (same pass/fail counts as baseline)\nGate: build\nCommit: `build(deps): declare mcp as direct dependency`",
+        "testStrategy": "none (build gate only)",
+        "subtasks": [],
+        "metadata": {
+          "wave": 1,
+          "onCriticalPath": true
+        },
+        "updatedAt": "2026-10-23T17:54:47.415Z"
+      },
+      {
+        "id": "2",
+        "title": "Allocate stdio request id after lazy initialize",
+        "description": "In `StdioConnection.call_tool`, call `await self._ensure_process()` before building the `tools/call` payload so `initialize` gets the lower id.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": ["1"],
+        "details": "Where: `src/backends/connection_manager.py`\nRequirement: CTP-19\nReuses: `_ensure_process`, `_next_id`\nDone when:\n- [ ] The 5 failing `TestStdioConnection` tests pass with no change to their assertions\n- [ ] New test: on first call, the `initialize` request written to stdin has a lower id than the `tools/call` request\n- [ ] Gate check passes: `uv run pytest -q tests/unit`\n- [ ] Test count: unit suite has 0 failures (no silent deletions)\nGate: quick\nCommit: `fix(backends): allocate stdio request id after initialize`",
+        "testStrategy": "unit tests per Done-when list; gate: quick",
+        "subtasks": [],
+        "metadata": {
+          "wave": 2,
+          "onCriticalPath": true
+        },
+        "updatedAt": "2026-10-23T18:00:05.337Z"
+      },
+      {
+        "id": "3",
+        "title": "Connections return the raw JSON-RPC result",
+        "description": "Stdio and HTTP `call_tool` return `resp.get(\"result\", {\"content\": []})` instead of `result[\"content\"]`.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": ["2"],
+        "details": "Where: `src/backends/connection_manager.py`\nRequirement: CTP-07, CTP-15\nReuses: existing `_send` and HTTP retry loop\nDone when:\n- [ ] Red first: stdio + HTTP success tests (`test_connection_manager.py:144`, `:314`) assert the full `result` dict, including `isError`, `structuredContent` and `_meta` when present\n- [ ] New tests: a response without `result` returns `{\"content\": []}` (stdio + HTTP)\n- [ ] JSON-RPC `error` still raises `RuntimeError` (existing tests unchanged)\n- [ ] Gate check passes: `uv run pytest -q tests/unit`\nGate: quick\nCommit: `feat(backends): return raw CallToolResult from connections`",
+        "testStrategy": "unit tests per Done-when list; gate: quick",
+        "subtasks": [],
+        "metadata": {
+          "wave": 3,
+          "onCriticalPath": true
+        },
+        "updatedAt": "2026-10-23T18:01:08.857Z"
+      },
+      {
+        "id": "4",
+        "title": "call_tool returns CallToolResult",
+        "description": "`src/tools/call_tool.py::call_tool` returns `mcp.types.CallToolResult`: `_to_call_tool_result` (null-key strip + `model_validate` + tolerant fallback), `_error_result` for every proxy-side failure (KeyError via `e.args[0]`), and one `try/finally` INFO log with elapsed ms.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": ["3"],
+        "details": "Where: `src/tools/call_tool.py`\nRequirement: CTP-01, CTP-04, CTP-05, CTP-06, CTP-08, CTP-09, CTP-10, CTP-11, CTP-12, CTP-13, CTP-14, CTP-15, CTP-16, CTP-20, CTP-21\nReuses: `_validate_arguments`, `load_catalog`, `catalog.find_tool`\nDone when:\n- [ ] Red first: every `TestCallTool` test in `tests/unit/test_call_tool.py` (`test_success`, `test_tool_not_found`, `test_server_not_found`, `test_validation_failure`, `test_missing_required_arg`, `test_backend_exception_wrapped`, `test_timeout_wrapped`) asserts `CallToolResult` fields, with no `result[\"success\"]`. Mocks return valid `{\"content\": [...]}` dicts instead of `{\"data\": \"result\"}` / `\"ok\"`\n- [ ] `test_elapsed_ms_present` replaced by caplog tests asserting one INFO log with elapsed ms on success AND on an error branch (CTP-08)\n- [ ] One test per AC: passthrough content (CTP-01), text with JSON kept verbatim (CTP-20), structuredContent (CTP-04), isError (CTP-05), `_meta` (CTP-06), CTP-09..13 exact texts (CTP-12 without quotes), CTP-14 (`{\"content\": \"x\"}`, list input, unknown block type), CTP-15, CTP-16 (`isError: null`), CTP-21 (empty content)\n- [ ] `tests/integration/test_error_handling.py` migrated: `TestTimeoutHandling`, `TestValidationErrors` (x2), unknown tool/server, `test_call_empty_catalog` and `test_generic_exception_wrapped` assert `isError` + text; `test_result_always_has_elapsed` replaced by a caplog INFO assertion\n- [ ] Gate check passes: `uv run pytest -q tests/unit tests/integration/test_error_handling.py`\nGate: quick\nCommit: `feat(tools)!: return backend CallToolResult from call_tool`",
+        "testStrategy": "unit tests per Done-when list; gate: quick",
+        "subtasks": [],
+        "metadata": {
+          "wave": 4,
+          "onCriticalPath": true
+        },
+        "updatedAt": "2026-10-23T18:17:25.254Z"
+      },
+      {
+        "id": "5",
+        "title": "Wire CallToolResult through the MCP server",
+        "description": "Add a module-level `from mcp.types import CallToolResult` to `server.py`, annotate the `call_tool` tool `-> CallToolResult`, rewrite its docstring `Returns:` (CTP-18), remove the dead `fastmcp` import fallback, and add an in-memory client integration test.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": ["4"],
+        "details": "Where: `src/proxy/server.py`\nRequirement: CTP-02, CTP-03, CTP-05, CTP-09, CTP-18\nReuses: `mcp.shared.memory.create_connected_server_and_client_session`, `build_mcp_server`, `invalidate_catalog_cache`\nDone when:\n- [ ] Red first: new `tests/integration/test_call_tool_mcp_client.py`. It monkeypatches `src.proxy.server._load_manager` to return a fake manager (`call_tool` AsyncMock), writes a tmp catalog with one tool, calls `invalidate_catalog_cache()` in setup/teardown, builds the server via `build_mcp_server(tmp_config, tmp_catalog)`, and opens `create_connected_server_and_client_session(mcp)`\n- [ ] It asserts client-side: `TextContent.text == '{\"a\": 1}'` (CTP-02), `ImageContent` with the same data/mimeType (CTP-03), `isError is True` for a backend error (CTP-05), and `isError is True` for an unknown tool (CTP-09)\n- [ ] The tool description seen by the client (`list_tools`) contains no `elapsed_ms` / `success` (CTP-18)\n- [ ] `uv run --with mypy mypy src/proxy/server.py` reports 0 errors\n- [ ] Gate check passes: `uv run pytest -q tests/unit tests/integration/test_call_tool_mcp_client.py tests/integration/test_error_handling.py`\nGate: full\nCommit: `feat(proxy): pass CallToolResult through to MCP clients`",
+        "testStrategy": "integration tests per Done-when list; gate: full",
+        "subtasks": [],
+        "metadata": {
+          "wave": 5,
+          "onCriticalPath": true
+        },
+        "updatedAt": "2026-10-23T18:20:25.389Z"
+      },
+      {
+        "id": "6",
+        "title": "Repair e2e tests",
+        "description": "Migrate the `call_tool` tests in `tests/integration/test_proxy_e2e.py` (`TestFullWorkflow::test_search_then_call`, `test_concurrent_calls`, `test_error_propagation`) to the `CallToolResult` shape, with mocks returning valid content dicts. Make the `catalog_path` fixture build `catalog.db` via `build_index` and reset the search caches, so the 5 baseline failures pass.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": ["5"],
+        "details": "Where: `tests/integration/test_proxy_e2e.py`\nRequirement: CTP-01, CTP-05, CTP-23\nReuses: `build_index` pattern from `tests/unit/test_search_tools.py:38`, `invalidate_catalog_cache` (`src/tools/search_tools.py:48`)\nDone when:\n- [ ] All `tests/integration/test_proxy_e2e.py` tests pass\n- [ ] No `result[\"success\"]` / `elapsed_ms` assertion remains for `call_tool` (the `get_tool_schema` `success` assertions at `:133-150` stay; that tool is out of scope)\n- [ ] Gate check passes: `uv run pytest -q`\nGate: full\nCommit: `test(e2e): migrate call_tool tests and build vector index fixture`",
+        "testStrategy": "integration tests per Done-when list; gate: full",
+        "subtasks": [],
+        "metadata": {
+          "wave": 6,
+          "onCriticalPath": true
+        },
+        "updatedAt": "2026-10-23T18:21:37.544Z"
+      },
+      {
+        "id": "7",
+        "title": "Update README call_tool response docs",
+        "description": "Replace the `call_tool` \"Returns\" example with the `CallToolResult` shape (content blocks, `isError`, `structuredContent`) plus one proxy-error example.",
+        "status": "done",
+        "priority": "medium",
+        "dependencies": ["6"],
+        "details": "Where: `README.md`\nRequirement: CTP-18\nReuses: none\nDone when:\n- [ ] README `call_tool` section contains no `elapsed_ms` / `\"success\"`\n- [ ] Gate check passes: build gate\nGate: build\nCommit: `docs: document CallToolResult passthrough for call_tool`",
+        "testStrategy": "none (build gate only)",
+        "subtasks": [],
+        "metadata": {
+          "wave": 7,
+          "onCriticalPath": true
+        },
+        "updatedAt": "2026-10-23T18:21:53.988Z"
+      },
+      {
+        "id": "8",
+        "title": "Update dev script output",
+        "description": "`scripts/test_call_tool.py` prints `json.dumps(result.model_dump(by_alias=True, exclude_none=True), indent=2)`.",
+        "status": "done",
+        "priority": "medium",
+        "dependencies": ["7"],
+        "details": "Where: `scripts/test_call_tool.py`\nRequirement: CTP-22\nReuses: none\nDone when:\n- [ ] `uv run python -c \"import ast; ast.parse(open('scripts/test_call_tool.py').read())\"` succeeds\n- [ ] Gate check passes: build gate\nGate: build\nCommit: `chore(scripts): print CallToolResult from test_call_tool`",
+        "testStrategy": "none (build gate only)",
+        "subtasks": [],
+        "metadata": {
+          "wave": 8,
+          "onCriticalPath": true
+        },
+        "updatedAt": "2026-10-23T18:22:44.787Z"
+      },
+      {
+        "id": "9",
+        "title": "Lint-clean touched files",
+        "description": "Fix every ruff finding (46 at baseline, plus any in the new test file) in the files listed in the build gate `ruff check` command.",
+        "status": "done",
+        "priority": "medium",
+        "dependencies": ["8"],
+        "details": "Where: files listed in the Build gate `ruff check` command\nRequirement: CTP-23\nReuses: `ruff check --fix` for the auto-fixable subset\nDone when:\n- [ ] Build gate `ruff check ...` reports 0 errors\n- [ ] Full test suite passes with the same test count as after T8\n- [ ] Gate check passes: build gate\nGate: build\nCommit: `style: fix ruff findings in call_tool passthrough files`",
+        "testStrategy": "none (build gate only)",
+        "subtasks": [],
+        "metadata": {
+          "wave": 9,
+          "onCriticalPath": true
+        },
+        "updatedAt": "2026-10-23T18:25:32.332Z"
+      }
+    ],
+    "metadata": {
+      "version": "1.0.0",
+      "lastModified": "2026-10-23T18:25:32.332Z",
+      "taskCount": 9,
+      "completedCount": 9,
+      "tags": ["call-tool-passthrough"]
     }
   }
 }

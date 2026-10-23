@@ -5,15 +5,31 @@
 - Every user question → interactive tool, never plain text. Claude:
   `AskUserQuestion`. Multiple questions: `grilling` skill.
 
+- `AskUserQuestion` questions must be fully contextualized, never terse. Each
+  question's body must explain _why_ it's being asked (what was found in the
+  code, what trade-off is at stake) before stating the choice. Each option's
+  `description` must explain what picking it actually does/causes — not just
+  restate the label. Never submit a question or option whose text would be
+  truncated or cut short; write the full explanation every time.
+
+- When user asks a question → answer only. Do not modify code without user's
+  explicit authorization first.
+
 - When task list exists (multi-step work), use `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate` to give user feedback. Mark tasks complete as done, don't batch.
 
 - Whenever you modify a component or screen → run tests using Playwright (or a similar E2E tool) before finalizing.
 
-- Whenever lint, type, or test errors are reported, fix them, even if they were not caused by your changes.
+- Whenever lint, type, or test errors are reported in files you have touched, fix them — even if they were not caused by your own changes.
 
 - Never treat documentation (`markdown files`,`memories`) as absolute truth. Only the implemented code should be treated as the truth.
 
 - Never assume the code is correct without tests to validate it.
+
+- TDD mandatory when repo/project already adopts tests (existing test suite/framework present): write failing test first (Red), then minimal code to pass (Green), then refactor. No large unverified code blocks — small loops only. If repo has no test setup, don't impose one unprompted.
+
+- Evidence over trust: before asking human review, provide proof change works — passing test logs, screenshots/recordings of E2E or visual tests. No "should work" claims.
+
+- Vertical slices only: implement thin end-to-end slices (tracer bullets) through all layers, not horizontal layers (all DB, then all API, then all UI). Each slice testable and validated before next.
 
 ## Commonly used skills
 
