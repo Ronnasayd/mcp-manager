@@ -221,16 +221,35 @@ Execute a tool on a backend server.
 }
 ```
 
-**Returns:**
+**Returns:** the backend's MCP `CallToolResult`, passed through unchanged.
+Text blocks are not re-encoded, images arrive as image blocks, and
+`isError`, `structuredContent` and `_meta` are kept as the backend sent them.
 
 ```json
 {
-  "success": true,
-  "result": [ ... ],
-  "error": null,
-  "elapsed_ms": 142
+  "content": [{ "type": "text", "text": "/tmp/app.log\n/tmp/db.log" }],
+  "structuredContent": { "matches": ["/tmp/app.log", "/tmp/db.log"] },
+  "isError": false
 }
 ```
+
+Proxy-side failures (unknown tool or server, invalid arguments, timeout,
+backend crash) use the same shape with `isError: true` and one text block:
+
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Tool 'search_filez' not found on server 'filesystem'"
+    }
+  ],
+  "isError": true
+}
+```
+
+Invalid arguments append the tool's input schema to the error text so the
+caller can retry with corrected arguments.
 
 ---
 
