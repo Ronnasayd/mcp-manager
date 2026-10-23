@@ -33,6 +33,12 @@ testpaths = ["tests"]
 [tool.mypy]
 explicit_package_bases = true
 mypy_path = "."
+# why: lint hooks run a global mypy; resolve third-party imports from the project venv.
+python_executable = ".venv/bin/python"
+
+[tool.pylint.main]
+# why: lint hooks run a global pylint; expose the repo root and project venv packages.
+init-hook = "import glob, sys; sys.path[:0] = ['.', *glob.glob('.venv/lib/python3*/site-packages')]"
 
 [build-system]
 requires = ["hatchling"]

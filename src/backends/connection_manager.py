@@ -11,7 +11,7 @@ import time
 
 import httpx
 
-from src.catalog.schema import (  # pylint: disable=import-error
+from src.catalog.schema import (
     BackendType,
     HttpBackendConfig,
     StdioBackendConfig,
