@@ -125,30 +125,49 @@ class TestIsAlive:
 # ---------------------------------------------------------------------------
 
 
+FULL_RESULT = {
+    "content": [{"type": "text", "text": "hello"}],
+    "isError": True,
+    "structuredContent": {"answer": 42},
+    "_meta": {"trace": "abc"},
+}
+
+
+async def _call_http(body: dict) -> object:
+    """Call HttpConnection.call_tool against a mocked 200 response.
+
+    Args:
+        body: JSON-RPC response body returned by the backend.
+
+    Returns:
+        object: Whatever call_tool returns.
+    """
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = body
+    mock_response.raise_for_status = MagicMock()
+
+    mock_client = AsyncMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client.post = AsyncMock(return_value=mock_response)
+
+    with patch("httpx.AsyncClient", return_value=mock_client):
+        return await HttpConnection("test", _http_cfg()).call_tool("my_tool", {"x": 1})
+
+
 class TestHttpConnection:
     @pytest.mark.asyncio
     async def test_call_tool_success(self):
-        cfg = _http_cfg("http://localhost:9000")
-        conn = HttpConnection("test", cfg)
+        result = await _call_http({"jsonrpc": "2.0", "id": 1, "result": FULL_RESULT})
 
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "result": {"content": [{"type": "text", "text": "hello"}]},
-        }
-        mock_response.raise_for_status = MagicMock()
+        assert result == FULL_RESULT
 
-        mock_client = AsyncMock()
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_client.post = AsyncMock(return_value=mock_response)
+    @pytest.mark.asyncio
+    async def test_missing_result_returns_empty_content(self):
+        result = await _call_http({"jsonrpc": "2.0", "id": 1})
 
-        with patch("httpx.AsyncClient", return_value=mock_client):
-            result = await conn.call_tool("my_tool", {"x": 1})
-
-        assert result == [{"type": "text", "text": "hello"}]
+        assert result == {"content": []}
 
     @pytest.mark.asyncio
     async def test_call_tool_error_response_raises(self):
@@ -229,7 +248,7 @@ class TestHttpConnection:
                 result = await conn.call_tool("tool", {})
 
         assert call_count == 3
-        assert result == "ok"
+        assert result == {"content": "ok"}
 
     @pytest.mark.asyncio
     async def test_call_tool_non_5xx_does_not_retry(self):
@@ -322,16 +341,25 @@ class TestStdioConnection:
                 "serverInfo": {"name": "srv", "version": "1.0"},
             },
         )
-        tool_resp = _make_jsonrpc_response(
-            2,
-            {"content": [{"type": "text", "text": "result"}]},
-        )
+        tool_resp = _make_jsonrpc_response(2, FULL_RESULT)
         proc = _make_stdio_process([init_resp, tool_resp])
 
         with patch("asyncio.create_subprocess_exec", AsyncMock(return_value=proc)):
             result = await conn.call_tool("my_tool", {"x": "hi"})
 
-        assert result == [{"type": "text", "text": "result"}]
+        assert result == FULL_RESULT
+
+    @pytest.mark.asyncio
+    async def test_missing_result_returns_empty_content(self):
+        conn = StdioConnection("srv", _stdio_cfg())
+        init_resp = _make_jsonrpc_response(1, {"capabilities": {}})
+        tool_resp = (json.dumps({"jsonrpc": "2.0", "id": 2}) + "\n").encode()
+        proc = _make_stdio_process([init_resp, tool_resp])
+
+        with patch("asyncio.create_subprocess_exec", AsyncMock(return_value=proc)):
+            result = await conn.call_tool("tool", {})
+
+        assert result == {"content": []}
 
     @pytest.mark.asyncio
     async def test_initialize_gets_lower_id_than_first_tool_call(self):

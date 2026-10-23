@@ -179,7 +179,7 @@ class StdioConnection(BackendConnection):
             arguments: Tool arguments.
 
         Returns:
-            object: The backend tool result content.
+            object: The raw JSON-RPC result object.
 
         Raises:
             RuntimeError: When the backend answers with a JSON-RPC error.
@@ -199,9 +199,7 @@ class StdioConnection(BackendConnection):
         if "error" in resp:
             raise RuntimeError(resp["error"].get("message", "Unknown error"))
 
-        result = resp.get("result", {})
-        content = result.get("content", result)
-        return content
+        return resp.get("result", {"content": []})
 
     async def close(self) -> None:
         """Kill the backend process if it is running."""
@@ -240,7 +238,7 @@ class HttpConnection(BackendConnection):
             arguments: Tool arguments.
 
         Returns:
-            object: The backend tool result content.
+            object: The raw JSON-RPC result object.
 
         Raises:
             RuntimeError: When the backend answers with a JSON-RPC error.
@@ -278,8 +276,7 @@ class HttpConnection(BackendConnection):
                 if "error" in data:
                     raise RuntimeError(data["error"].get("message", "Unknown error"))
 
-                result = data.get("result", {})
-                return result.get("content", result)
+                return data.get("result", {"content": []})
 
             except httpx.HTTPStatusError as e:
                 last_exc = e
@@ -339,7 +336,7 @@ class ConnectionManager:
             arguments: Tool arguments.
 
         Returns:
-            object: The backend tool result content.
+            object: The raw JSON-RPC result object.
         """
         conn = self._get_or_create(server_id)
         return await conn.call_tool(tool_name, arguments)
