@@ -23,10 +23,9 @@ from src.tools.call_tool import call_tool
 from src.tools.get_tool_schema import get_tool_schema
 from src.tools.get_tools_by_server import get_tools_by_server
 from src.tools.list_servers import list_servers
-from src.tools.search_tools import invalidate_catalog_cache, search_tools
+from src.tools.search_tools import search_tools
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
     from pathlib import Path
 
 ROWS = {"content": [{"type": "text", "text": '{"rows": []}'}]}
@@ -93,18 +92,6 @@ def _build_test_catalog(path: Path) -> None:
     )
     path.write_text(catalog.model_dump_json(), encoding="utf-8")
     build_index(catalog, path.with_suffix(".db"))
-
-
-@pytest.fixture(autouse=True)
-def reset_cache() -> Iterator[None]:
-    """Clear the catalog and vector caches around each test.
-
-    Yields:
-        None: Control to the test.
-    """
-    invalidate_catalog_cache()
-    yield
-    invalidate_catalog_cache()
 
 
 @pytest.fixture

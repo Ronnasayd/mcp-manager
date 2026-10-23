@@ -11,25 +11,11 @@ import pytest
 
 from src.catalog.schema import Catalog, CatalogBackend, CatalogTool
 from src.proxy.server import build_mcp_server
-from src.tools.search_tools import invalidate_catalog_cache
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
     from pathlib import Path
 
 IMAGE = {"type": "image", "data": "aGk=", "mimeType": "image/png"}
-
-
-@pytest.fixture(autouse=True)
-def reset_cache() -> Iterator[None]:
-    """Clear the global catalog cache around each test.
-
-    Yields:
-        None: Control to the test.
-    """
-    invalidate_catalog_cache()
-    yield
-    invalidate_catalog_cache()
 
 
 @pytest.fixture

@@ -15,23 +15,10 @@ import pytest
 from src.catalog.schema import Catalog, CatalogBackend, CatalogTool
 from src.tools.call_tool import call_tool
 from src.tools.get_tool_schema import get_tool_schema
-from src.tools.search_tools import invalidate_catalog_cache, search_tools
+from src.tools.search_tools import search_tools
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
     from pathlib import Path
-
-
-@pytest.fixture(autouse=True)
-def reset_cache() -> Iterator[None]:
-    """Clear the global catalog cache around each test.
-
-    Yields:
-        None: Control to the test.
-    """
-    invalidate_catalog_cache()
-    yield
-    invalidate_catalog_cache()
 
 
 def _simple_catalog(path: Path) -> None:

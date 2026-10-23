@@ -6,9 +6,7 @@ import asyncio
 import json
 from pathlib import Path
 
-from src.backends.connection_manager import ConnectionManager
-from src.catalog.builder import resolve_config
-from src.catalog.schema import BackendsConfig
+from src.proxy.server import build_mcp_server
 from src.tools.call_tool import call_tool
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -19,14 +17,7 @@ CATALOG_JSON = ROOT / "catalog.json"
 
 async def main() -> None:
     """Call one backend tool through the proxy router and print the result."""
-    # Load and register backends
-    raw = json.loads(BACKENDS_JSON.read_text())
-    config = BackendsConfig.model_validate(raw)
-    config = resolve_config(config)
-
-    manager = ConnectionManager()
-    for server_id, cfg in config.servers.items():
-        manager.register(server_id, cfg)
+    _, manager = build_mcp_server(BACKENDS_JSON, CATALOG_JSON)
 
     server_id = "chrome-devtools"
     tool_name = "new_page"
