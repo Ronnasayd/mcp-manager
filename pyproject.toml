@@ -36,9 +36,67 @@ mypy_path = "."
 # why: lint hooks run a global mypy; resolve third-party imports from the project venv.
 python_executable = ".venv/bin/python"
 
+# why: a project pylint config replaces ~/.pylintrc entirely, so its non-default
+# settings are mirrored here; keep in sync with the dotfiles copy.
 [tool.pylint.main]
 # why: lint hooks run a global pylint; expose the repo root and project venv packages.
 init-hook = "import glob, sys; sys.path[:0] = ['.', *glob.glob('.venv/lib/python3*/site-packages')]"
+load-plugins = ["pylint.extensions.docparams"]
+
+[tool.pylint.design]
+max-statements = 40
+
+[tool.pylint.refactoring]
+max-nested-blocks = 3
+
+[tool.pylint.parameter_documentation]
+default-docstring-type = "google"
+
+[tool.pylint."messages control"]
+disable = [
+    "raw-checker-failed",
+    "bad-inline-option",
+    "locally-disabled",
+    "file-ignored",
+    "suppressed-message",
+    "useless-suppression",
+    "deprecated-pragma",
+    "use-symbolic-message-instead",
+    "use-implicit-booleaness-not-comparison-to-string",
+    "use-implicit-booleaness-not-comparison-to-zero",
+    "wrong-import-position",
+    "invalid-name",
+    "missing-function-docstring",
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "wildcard-import",
+    "unused-wildcard-import",
+    "redefined-outer-name",
+    "useless-else-on-loop",
+    "line-too-long",
+    "trailing-whitespace",
+    "trailing-newlines",
+    "missing-final-newline",
+    "mixed-line-endings",
+    "multiple-statements",
+    "unnecessary-semicolon",
+    "bad-indentation",
+    "wrong-spelling-in-comment",
+    "unused-import",
+    "unused-variable",
+    "unused-argument",
+    "undefined-variable",
+    "wrong-import-order",
+    "ungrouped-imports",
+    "too-many-branches",
+    "unused-format-string-argument",
+    "simplifiable-if-statement",
+    "no-else-return",
+    "no-else-raise",
+    "consider-using-in",
+    "unnecessary-negation",
+    "unnecessary-comprehension",
+]
 
 [build-system]
 requires = ["hatchling"]
