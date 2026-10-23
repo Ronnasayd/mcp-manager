@@ -8,9 +8,14 @@ import logging
 import os
 import re
 import time
-from typing import Any
 
-from src.catalog.schema import BackendType, HttpBackendConfig, StdioBackendConfig
+import httpx
+
+from src.catalog.schema import (  # pylint: disable=import-error
+    BackendType,
+    HttpBackendConfig,
+    StdioBackendConfig,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +32,7 @@ class BackendConnection:
     """Abstract base for a backend connection."""
 
     def __init__(self, server_id: str) -> None:
+        """Create a connection for the given backend server id."""
         self.server_id = server_id
         self._last_used: float = time.monotonic()
         self._lock = asyncio.Lock()
@@ -35,24 +41,53 @@ class BackendConnection:
         self._last_used = time.monotonic()
 
     def idle_seconds(self) -> float:
+        """Seconds elapsed since the connection was last used.
+
+        Returns:
+            float: Idle time in seconds.
+        """
         return time.monotonic() - self._last_used
 
-    async def call_tool(self, tool_name: str, arguments: dict) -> Any:
+    async def call_tool(self, tool_name: str, arguments: dict) -> object:
+        """Invoke a tool on the backend.
+
+        Args:
+            tool_name: Backend tool to invoke.
+            arguments: Tool arguments.
+
+        """
         raise NotImplementedError
 
     async def close(self) -> None:
-        pass
+        """Release backend resources."""
 
 
 class StdioConnection(BackendConnection):
     """Manages a stdio subprocess MCP backend."""
 
     def __init__(self, server_id: str, cfg: StdioBackendConfig) -> None:
+        """Create a lazily spawned stdio connection."""
         super().__init__(server_id)
         self._cfg = cfg
         self._proc: asyncio.subprocess.Process | None = None
         self._req_id = 0
         self._initialized = False
+
+    def is_running(self) -> bool:
+        """Whether the backend process is spawned and still running.
+
+        Returns:
+            bool: True while the process is alive.
+        """
+        return self._proc is not None and self._proc.returncode is None
+
+    def has_exited(self) -> bool:
+        """Whether a previously spawned backend process has terminated.
+
+        Returns:
+            bool: True once the spawned process has exited.
+        """
+        return self._proc is not None and self._proc.returncode is not None
 
     async def _ensure_process(self) -> asyncio.subprocess.Process:
         if self._proc is not None and self._proc.returncode is None:
@@ -75,6 +110,8 @@ class StdioConnection(BackendConnection):
             env=env,
         )
         self._initialized = False
+        # why: a respawned process is a new JSON-RPC session; ids restart at 1.
+        self._req_id = 0
         await self._initialize()
         return self._proc
 
@@ -134,9 +171,23 @@ class StdioConnection(BackendConnection):
         self._req_id += 1
         return self._req_id
 
-    async def call_tool(self, tool_name: str, arguments: dict) -> Any:
+    async def call_tool(self, tool_name: str, arguments: dict) -> object:
+        """Send a tools/call request over stdio.
+
+        Args:
+            tool_name: Backend tool to invoke.
+            arguments: Tool arguments.
+
+        Returns:
+            object: The backend tool result content.
+
+        Raises:
+            RuntimeError: When the backend answers with a JSON-RPC error.
+        """
         async with self._lock:
             self._touch()
+            # invariant: initialize must claim its request id before tools/call.
+            await self._ensure_process()
             resp = await self._send(
                 {
                     "jsonrpc": "2.0",
@@ -153,6 +204,7 @@ class StdioConnection(BackendConnection):
         return content
 
     async def close(self) -> None:
+        """Kill the backend process if it is running."""
         if self._proc and self._proc.returncode is None:
             logger.info("[%s] Closing stdio process", self.server_id)
             try:
@@ -160,7 +212,8 @@ class StdioConnection(BackendConnection):
                     self._proc.stdin.close()
                 self._proc.kill()
                 await self._proc.wait()
-            except Exception as e:
+            # why: closing must never raise; any failure is only logged.
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.warning("[%s] Error closing process: %s", self.server_id, e)
         self._proc = None
         self._initialized = False
@@ -170,6 +223,7 @@ class HttpConnection(BackendConnection):
     """Manages an HTTP MCP backend."""
 
     def __init__(self, server_id: str, cfg: HttpBackendConfig) -> None:
+        """Create an HTTP connection."""
         super().__init__(server_id)
         self._cfg = cfg
         self._req_id = 0
@@ -178,9 +232,19 @@ class HttpConnection(BackendConnection):
         self._req_id += 1
         return self._req_id
 
-    async def call_tool(self, tool_name: str, arguments: dict) -> Any:
-        import httpx
+    async def call_tool(self, tool_name: str, arguments: dict) -> object:
+        """Send a tools/call request over HTTP, retrying 5xx responses.
 
+        Args:
+            tool_name: Backend tool to invoke.
+            arguments: Tool arguments.
+
+        Returns:
+            object: The backend tool result content.
+
+        Raises:
+            RuntimeError: When the backend answers with a JSON-RPC error.
+        """
         self._touch()
         url = self._cfg.url.rstrip("/")
         headers = {"Content-Type": "application/json", **self._cfg.headers}
@@ -221,7 +285,8 @@ class HttpConnection(BackendConnection):
                 last_exc = e
                 if e.response.status_code < 500:
                     break
-            except Exception as e:
+            # why: any other failure is surfaced to the caller via last_exc.
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 last_exc = e
                 break
 
@@ -232,6 +297,7 @@ class ConnectionManager:
     """Manages all backend connections with lazy spawn and idle timeout."""
 
     def __init__(self) -> None:
+        """Create an empty connection manager."""
         self._connections: dict[str, BackendConnection] = {}
         self._configs: dict[str, StdioBackendConfig | HttpBackendConfig] = {}
         self._cleanup_task: asyncio.Task | None = None
@@ -239,6 +305,12 @@ class ConnectionManager:
     def register(
         self, server_id: str, cfg: StdioBackendConfig | HttpBackendConfig
     ) -> None:
+        """Register a backend configuration under a server id.
+
+        Args:
+            server_id: Server id used to route calls.
+            cfg: Backend configuration.
+        """
         self._configs[server_id] = cfg
 
     def _get_or_create(self, server_id: str) -> BackendConnection:
@@ -246,11 +318,7 @@ class ConnectionManager:
             raise KeyError(f"Unknown server: {server_id}")
 
         conn = self._connections.get(server_id)
-        if conn is None or (
-            isinstance(conn, StdioConnection)
-            and conn._proc is not None
-            and conn._proc.returncode is not None
-        ):
+        if conn is None or (isinstance(conn, StdioConnection) and conn.has_exited()):
             cfg = self._configs[server_id]
             if cfg.type == BackendType.STDIO:
                 conn = StdioConnection(server_id, cfg)  # type: ignore[arg-type]
@@ -260,22 +328,48 @@ class ConnectionManager:
 
         return conn
 
-    async def call_tool(self, server_id: str, tool_name: str, arguments: dict) -> Any:
+    async def call_tool(
+        self, server_id: str, tool_name: str, arguments: dict
+    ) -> object:
+        """Route a tool call to the backend registered as server_id.
+
+        Args:
+            server_id: Target backend server id.
+            tool_name: Backend tool to invoke.
+            arguments: Tool arguments.
+
+        Returns:
+            object: The backend tool result content.
+        """
         conn = self._get_or_create(server_id)
         return await conn.call_tool(tool_name, arguments)
 
     def server_ids(self) -> list[str]:
+        """List registered server ids.
+
+        Returns:
+            list[str]: Registered server ids.
+        """
         return list(self._configs.keys())
 
     def is_alive(self, server_id: str) -> bool:
+        """Whether the backend for server_id currently has a live connection.
+
+        Args:
+            server_id: Backend server id.
+
+        Returns:
+            bool: True for HTTP backends and running stdio processes.
+        """
         conn = self._connections.get(server_id)
         if conn is None:
             return False
         if isinstance(conn, StdioConnection):
-            return conn._proc is not None and conn._proc.returncode is None
+            return conn.is_running()
         return True  # HTTP is always considered alive
 
     async def start_cleanup_loop(self) -> None:
+        """Start the background idle-connection cleanup task."""
         self._cleanup_task = asyncio.create_task(self._idle_cleanup_loop())
 
     async def _idle_cleanup_loop(self) -> None:
@@ -291,6 +385,7 @@ class ConnectionManager:
                     del self._connections[server_id]
 
     async def close_all(self) -> None:
+        """Stop the cleanup task and close every connection."""
         if self._cleanup_task:
             self._cleanup_task.cancel()
         for conn in self._connections.values():

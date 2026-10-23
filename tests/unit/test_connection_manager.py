@@ -1,5 +1,8 @@
 """Unit tests for ConnectionManager lifecycle, spawn, timeout, and cleanup."""
 
+# why: these tests assert on connection internals (_proc, _connections, _touch).
+# pylint: disable=protected-access
+
 from __future__ import annotations
 
 import asyncio
@@ -7,7 +10,9 @@ import json
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
+
 from src.backends.connection_manager import (
     IDLE_TIMEOUT_SECONDS,
     BackendConnection,
@@ -170,8 +175,6 @@ class TestHttpConnection:
 
     @pytest.mark.asyncio
     async def test_call_tool_retries_on_500(self):
-        import httpx
-
         cfg = _http_cfg()
         conn = HttpConnection("test", cfg)
 
@@ -196,7 +199,19 @@ class TestHttpConnection:
         success_r.raise_for_status = MagicMock()
         responses.append(success_r)
 
-        async def fake_post(*args, **kwargs):
+        async def fake_post(*args, **kwargs) -> MagicMock:
+            """Replay the queued HTTP responses in order.
+
+            Args:
+                *args: Ignored positional arguments.
+                **kwargs: Ignored keyword arguments.
+
+            Returns:
+                MagicMock: The next queued response.
+
+            Raises:
+                HTTPStatusError: For queued 5xx responses.
+            """
             nonlocal call_count
             r = responses[call_count]
             call_count += 1
@@ -218,8 +233,6 @@ class TestHttpConnection:
 
     @pytest.mark.asyncio
     async def test_call_tool_non_5xx_does_not_retry(self):
-        import httpx
-
         cfg = _http_cfg()
         conn = HttpConnection("test", cfg)
 
@@ -259,7 +272,7 @@ class TestHttpConnection:
 
 
 # ---------------------------------------------------------------------------
-# StdioConnection – mocked subprocess
+# StdioConnection - mocked subprocess
 # ---------------------------------------------------------------------------
 
 
@@ -277,7 +290,12 @@ def _make_stdio_process(responses: list[bytes]) -> MagicMock:
 
     idx = 0
 
-    async def readline():
+    async def readline() -> bytes:
+        """Return the next queued stdout line, or EOF.
+
+        Returns:
+            bytes: The next response line, or b"" once exhausted.
+        """
         nonlocal idx
         if idx < len(responses):
             data = responses[idx]
@@ -314,6 +332,20 @@ class TestStdioConnection:
             result = await conn.call_tool("my_tool", {"x": "hi"})
 
         assert result == [{"type": "text", "text": "result"}]
+
+    @pytest.mark.asyncio
+    async def test_initialize_gets_lower_id_than_first_tool_call(self):
+        conn = StdioConnection("srv", _stdio_cfg())
+        init_resp = _make_jsonrpc_response(1, {"capabilities": {}})
+        tool_resp = _make_jsonrpc_response(2, {"content": []})
+        proc = _make_stdio_process([init_resp, tool_resp])
+
+        with patch("asyncio.create_subprocess_exec", AsyncMock(return_value=proc)):
+            await conn.call_tool("tool", {})
+
+        sent = [json.loads(c.args[0].decode()) for c in proc.stdin.write.call_args_list]
+        ids = {m["method"]: m["id"] for m in sent if "id" in m}
+        assert ids == {"initialize": 1, "tools/call": 2}
 
     @pytest.mark.asyncio
     async def test_call_tool_error_response_raises(self):
@@ -353,9 +385,17 @@ class TestStdioConnection:
         proc = _make_stdio_process([init_resp, tool_resp1, tool_resp2])
 
         spawn_count = 0
-        original_create = asyncio.create_subprocess_exec
 
-        async def counting_spawn(*args, **kwargs):
+        async def counting_spawn(*args, **kwargs) -> MagicMock:
+            """Count spawns and return the shared process.
+
+            Args:
+                *args: Ignored positional arguments.
+                **kwargs: Ignored keyword arguments.
+
+            Returns:
+                MagicMock: The mocked process.
+            """
             nonlocal spawn_count
             spawn_count += 1
             return proc
@@ -420,7 +460,16 @@ class TestStdioConnection:
         procs = [proc1, proc2]
         spawn_count = 0
 
-        async def spawn(*args, **kwargs):
+        async def spawn(*args, **kwargs) -> MagicMock:
+            """Return a fresh mocked process per spawn.
+
+            Args:
+                *args: Ignored positional arguments.
+                **kwargs: Ignored keyword arguments.
+
+            Returns:
+                MagicMock: The next mocked process.
+            """
             nonlocal spawn_count
             p = procs[spawn_count]
             spawn_count += 1
@@ -494,8 +543,6 @@ class TestConnectionManagerCloseAll:
         task = m._cleanup_task
         await m.close_all()
         # Give the event loop a chance to finish cancellation
-        import asyncio
-
         await asyncio.sleep(0)
         assert task.cancelled() or task.done()
 
