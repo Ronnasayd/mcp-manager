@@ -7,9 +7,28 @@ import asyncio
 import json
 import logging
 import os
-import sys
 from pathlib import Path
+import sys
 from typing import Any
+
+from mcp.server.fastmcp import FastMCP
+
+# invariant: module-level so FastMCP can resolve the string return annotation.
+from mcp.types import CallToolResult  # noqa: TC002
+
+from src.backends.connection_manager import ConnectionManager
+from src.catalog.builder import build_catalog, resolve_config
+from src.catalog.schema import BackendsConfig
+from src.tools.call_tool import call_tool as _call
+from src.tools.get_tool_schema import get_tool_schema as _get_schema
+from src.tools.get_tools_by_server import get_tools_by_server as _get_tools
+from src.tools.list_servers import list_servers as _list
+from src.tools.search_tools import search_tools as _search
+
+LOG_FORMAT = (
+    '{"time": "%(asctime)s", "level": "%(levelname)s", '
+    '"logger": "%(name)s", "msg": %(message)s}'
+)
 
 logger = logging.getLogger(__name__)
 
@@ -17,16 +36,12 @@ logger = logging.getLogger(__name__)
 def _setup_logging(level: str = "INFO") -> None:
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
-        format='{"time": "%(asctime)s", "level": "%(levelname)s", "logger": "%(name)s", "msg": %(message)s}',
+        format=LOG_FORMAT,
         datefmt="%Y-%m-%dT%H:%M:%S",
     )
 
 
-def _load_manager(config_path: Path):
-    from src.backends.connection_manager import ConnectionManager
-    from src.catalog.builder import resolve_config
-    from src.catalog.schema import BackendsConfig, BackendType
-
+def _load_manager(config_path: Path) -> ConnectionManager:
     raw = json.loads(config_path.read_text())
     config = BackendsConfig.model_validate(raw)
     config = resolve_config(config)
@@ -39,20 +54,26 @@ def _load_manager(config_path: Path):
     return manager
 
 
-def build_mcp_server(config_path: Path, catalog_path: Path):
-    """Build and return a configured FastMCP server instance."""
-    try:
-        from mcp.server.fastmcp import FastMCP
-    except ImportError:
-        from fastmcp import FastMCP
+def build_mcp_server(
+    config_path: Path, catalog_path: Path
+) -> tuple[FastMCP, ConnectionManager]:
+    """Build and return a configured FastMCP server instance.
 
+    Args:
+        config_path: Path to the backends configuration file.
+        catalog_path: Path to the tool catalog.
+
+    Returns:
+        tuple[FastMCP, ConnectionManager]: The server and its backend manager.
+    """
     manager = _load_manager(config_path)
 
     mcp = FastMCP(
         name="mcp-proxy",
         instructions=(
-            "This is an MCP proxy server. Use search_tools to discover available tools, "
-            "get_tool_schema to retrieve their input schemas, and call_tool to execute them. "
+            "This is an MCP proxy server. Use search_tools to discover available "
+            "tools, get_tool_schema to retrieve their input schemas, and call_tool "
+            "to execute them. "
             "Use list_servers to see all available backends."
         ),
     )
@@ -62,18 +83,16 @@ def build_mcp_server(config_path: Path, catalog_path: Path):
     # -----------------------------------------------------------------------
     @mcp.tool()
     def search_tools(query: str, max_results: int = 10) -> list[dict[str, Any]]:
-        """
-        Search the tool catalog using fuzzy matching.
+        """Search the tool catalog using fuzzy matching.
 
         Args:
             query: Search query string (tool name, description keywords, etc.)
             max_results: Maximum number of results to return (default: 10)
 
         Returns:
-            List of matching tools with server, name, description, score, and key fields.
+            List of matching tools with server, name, description, score, and key
+            fields.
         """
-        from src.tools.search_tools import search_tools as _search
-
         return _search(query, max_results=max_results, catalog_path=catalog_path)
 
     # -----------------------------------------------------------------------
@@ -81,8 +100,7 @@ def build_mcp_server(config_path: Path, catalog_path: Path):
     # -----------------------------------------------------------------------
     @mcp.tool()
     def get_tool_schema(server: str, tool_name: str) -> dict[str, Any]:
-        """
-        Retrieve the full JSON Schema for a specific tool.
+        """Retrieve the full JSON Schema for a specific tool.
 
         Args:
             server: Backend server ID (e.g., "github", "context7")
@@ -91,8 +109,6 @@ def build_mcp_server(config_path: Path, catalog_path: Path):
         Returns:
             Tool metadata including description and inputSchema.
         """
-        from src.tools.get_tool_schema import get_tool_schema as _get_schema
-
         return _get_schema(server, tool_name, catalog_path=catalog_path)
 
     # -----------------------------------------------------------------------
@@ -103,9 +119,8 @@ def build_mcp_server(config_path: Path, catalog_path: Path):
         server: str,
         tool_name: str,
         arguments: dict[str, Any],
-    ) -> dict[str, Any]:
-        """
-        Execute a tool on a backend MCP server.
+    ) -> CallToolResult:
+        """Execute a tool on a backend MCP server.
 
         Args:
             server: Backend server ID (e.g., "github", "context7")
@@ -113,10 +128,11 @@ def build_mcp_server(config_path: Path, catalog_path: Path):
             arguments: Arguments to pass to the tool (must match its inputSchema)
 
         Returns:
-            Result dict with success, result, error, and elapsed_ms fields.
+            The backend CallToolResult passed through unchanged: content blocks
+            (text, image, ...), isError, structuredContent and _meta. Proxy-side
+            failures (unknown tool, invalid arguments, timeout, backend crash)
+            return isError=true with a single text block explaining the error.
         """
-        from src.tools.call_tool import call_tool as _call
-
         return await _call(
             server, tool_name, arguments, manager, catalog_path=catalog_path
         )
@@ -126,14 +142,12 @@ def build_mcp_server(config_path: Path, catalog_path: Path):
     # -----------------------------------------------------------------------
     @mcp.tool()
     def list_servers() -> list[dict[str, Any]]:
-        """
-        List all configured backend servers and their status.
+        """List all configured backend servers and their status.
 
         Returns:
-            List of server info with id, name, type, status, tool_count, and last_cataloged_at.
+            List of server info with id, name, type, status, tool_count, and
+            last_cataloged_at.
         """
-        from src.tools.list_servers import list_servers as _list
-
         return _list(manager, catalog_path=catalog_path)
 
     # -----------------------------------------------------------------------
@@ -141,8 +155,7 @@ def build_mcp_server(config_path: Path, catalog_path: Path):
     # -----------------------------------------------------------------------
     @mcp.tool()
     def get_tools_by_server(server: str) -> list[dict[str, Any]]:
-        """
-        Get all tools available for a specific server.
+        """Get all tools available for a specific server.
 
         Args:
             server: Backend server ID (e.g., "github", "context7")
@@ -151,14 +164,13 @@ def build_mcp_server(config_path: Path, catalog_path: Path):
             List of tools with name and description for the server.
             Returns empty list if server is not found.
         """
-        from src.tools.get_tools_by_server import get_tools_by_server as _get_tools
-
         return _get_tools(server, catalog_path=catalog_path)
 
     return mcp, manager
 
 
 def main() -> None:
+    """Run the proxy server from the command line."""
     _setup_logging(os.environ.get("LOG_LEVEL", "INFO"))
 
     parser = argparse.ArgumentParser(description="MCP Proxy Server")
@@ -199,19 +211,18 @@ def main() -> None:
         sys.exit(1)
 
     if args.build_catalog:
-        from src.catalog.builder import build_catalog
-
         asyncio.run(build_catalog(config_path, catalog_path))
 
     mcp, manager = build_mcp_server(config_path, catalog_path)
 
-    async def _run():
+    async def _run() -> None:
         try:
             await manager.start_cleanup_loop()
             if args.transport == "stdio":
                 await mcp.run_stdio_async()
             else:
-                await mcp.run_sse_async(port=args.port)
+                mcp.settings.port = args.port
+                await mcp.run_sse_async()
         finally:
             await manager.close_all()
 
