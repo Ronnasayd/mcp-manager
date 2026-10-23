@@ -2,22 +2,42 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+import asyncio
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
+from mcp.types import TextContent
 import pytest
 
 from src.backends.connection_manager import ConnectionManager
-from src.catalog.schema import Catalog, CatalogBackend, CatalogTool
+from src.catalog.schema import (
+    BackendType,
+    Catalog,
+    CatalogBackend,
+    CatalogTool,
+    HttpBackendConfig,
+    StdioBackendConfig,
+)
+from src.catalog.vector_store import build_index
 from src.tools.call_tool import call_tool
 from src.tools.get_tool_schema import get_tool_schema
 from src.tools.get_tools_by_server import get_tools_by_server
 from src.tools.list_servers import list_servers
 from src.tools.search_tools import invalidate_catalog_cache, search_tools
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from pathlib import Path
+
+ROWS = {"content": [{"type": "text", "text": '{"rows": []}'}]}
+
 
 def _build_test_catalog(path: Path) -> None:
-    """Create a catalog with two mock backends for testing."""
+    """Create a catalog with two mock backends and its vector index.
+
+    Args:
+        path: Where to write catalog.json; the index goes next to it.
+    """
     tools_a = [
         CatalogTool(
             server_id="server_a",
@@ -71,11 +91,17 @@ def _build_test_catalog(path: Path) -> None:
             CatalogBackend(id="server_b", name="server_b", type="stdio", tools=tools_b),
         ]
     )
-    path.write_text(catalog.model_dump_json())
+    path.write_text(catalog.model_dump_json(), encoding="utf-8")
+    build_index(catalog, path.with_suffix(".db"))
 
 
 @pytest.fixture(autouse=True)
-def reset_cache():
+def reset_cache() -> Iterator[None]:
+    """Clear the catalog and vector caches around each test.
+
+    Yields:
+        None: Control to the test.
+    """
     invalidate_catalog_cache()
     yield
     invalidate_catalog_cache()
@@ -83,6 +109,14 @@ def reset_cache():
 
 @pytest.fixture
 def catalog_path(tmp_path: Path) -> Path:
+    """Write the test catalog and index under tmp_path.
+
+    Args:
+        tmp_path: Pytest temporary directory.
+
+    Returns:
+        Path: Path to catalog.json.
+    """
     p = tmp_path / "catalog.json"
     _build_test_catalog(p)
     return p
@@ -90,8 +124,11 @@ def catalog_path(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def manager() -> ConnectionManager:
-    from src.catalog.schema import BackendType, HttpBackendConfig, StdioBackendConfig
+    """Build a manager with one HTTP and one stdio backend.
 
+    Returns:
+        ConnectionManager: The registered manager.
+    """
     m = ConnectionManager()
     m.register(
         "server_a",
@@ -216,7 +253,7 @@ class TestFullWorkflow:
         assert schema_result["success"] is True
 
         # Step 3: call tool (mock the backend)
-        manager.call_tool = AsyncMock(return_value={"rows": []})
+        manager.call_tool = AsyncMock(return_value=ROWS)
         result = await call_tool(
             server,
             tool_name,
@@ -224,15 +261,13 @@ class TestFullWorkflow:
             manager,
             catalog_path=catalog_path,
         )
-        assert result["success"] is True
-        assert "elapsed_ms" in result
+        assert result.isError is False
+        assert result.content == [TextContent(type="text", text='{"rows": []}')]
 
     @pytest.mark.asyncio
     async def test_concurrent_calls(self, manager, catalog_path):
         """Concurrent calls to same backend should all succeed."""
-        import asyncio
-
-        manager.call_tool = AsyncMock(return_value="ok")
+        manager.call_tool = AsyncMock(return_value=ROWS)
 
         tasks = [
             call_tool(
@@ -245,7 +280,8 @@ class TestFullWorkflow:
             for i in range(10)
         ]
         results = await asyncio.gather(*tasks)
-        assert all(r["success"] for r in results)
+        assert all(r.isError is False for r in results)
+        assert all(r.content == results[0].content for r in results)
 
     @pytest.mark.asyncio
     async def test_error_propagation(self, manager, catalog_path):
@@ -258,5 +294,5 @@ class TestFullWorkflow:
             manager,
             catalog_path=catalog_path,
         )
-        assert result["success"] is False
-        assert "connection refused" in result["error"]
+        assert result.isError is True
+        assert result.content == [TextContent(type="text", text="connection refused")]
