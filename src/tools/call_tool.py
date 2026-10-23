@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from typing import TYPE_CHECKING, Any
+
+from mcp.types import CallToolResult, TextContent
+from pydantic import ValidationError
 
 from src.tools.search_tools import DEFAULT_CATALOG_PATH, load_catalog
 
@@ -69,13 +73,51 @@ def _validate_arguments(input_schema: dict, arguments: dict) -> list[str]:
     return errors
 
 
+def _error_result(message: str) -> CallToolResult:
+    """Build a proxy-side error result.
+
+    Args:
+        message: Error text shown to the client.
+
+    Returns:
+        CallToolResult: isError result with a single text block.
+    """
+    return CallToolResult(
+        content=[TextContent(type="text", text=message)], isError=True
+    )
+
+
+def _to_call_tool_result(raw: object, server: str, tool_name: str) -> CallToolResult:
+    """Convert a raw backend result into a CallToolResult.
+
+    Args:
+        raw: Raw JSON-RPC result returned by the backend.
+        server: Backend server name, for logging.
+        tool_name: Tool name, for logging.
+
+    Returns:
+        CallToolResult: The validated backend result, or the raw JSON as text
+        when the backend result is off-spec.
+    """
+    if isinstance(raw, dict):
+        cleaned = {k: v for k, v in raw.items() if v is not None}
+        try:
+            return CallToolResult.model_validate(cleaned)
+        except ValidationError:
+            pass
+    logger.warning(
+        "[%s/%s] Backend result is not a valid CallToolResult", server, tool_name
+    )
+    return CallToolResult(content=[TextContent(type="text", text=json.dumps(raw))])
+
+
 async def call_tool(
     server: str,
     tool_name: str,
     arguments: dict[str, Any],
     manager: ConnectionManager,
     catalog_path: Path = DEFAULT_CATALOG_PATH,
-) -> dict[str, Any]:
+) -> CallToolResult:
     """Execute a tool on a backend server.
 
     Args:
@@ -86,66 +128,39 @@ async def call_tool(
         catalog_path: Path to the tool catalog.
 
     Returns:
-        {
-            "success": bool,
-            "result": any | None,
-            "error": str | None,
-            "elapsed_ms": float,
-        }
+        CallToolResult: The backend result passed through unchanged, or an
+        isError result describing a proxy-side failure.
     """
     start = time.monotonic()
-
-    # Validate tool exists in catalog
-    catalog = load_catalog(catalog_path)
-    tool = catalog.find_tool(server, tool_name)
-
-    if tool is None:
-        return {
-            "success": False,
-            "result": None,
-            "error": f"Tool '{tool_name}' not found on server '{server}'",
-            "elapsed_ms": round((time.monotonic() - start) * 1000, 2),
-        }
-
-    # Validate arguments against schema
-    validation_errors = _validate_arguments(tool.input_schema, arguments)
-    if validation_errors:
-        return {
-            "success": False,
-            "result": None,
-            "error": "Validation failed: " + "; ".join(validation_errors),
-            "expected_schema": tool.input_schema,
-            "elapsed_ms": round((time.monotonic() - start) * 1000, 2),
-        }
-
-    # Execute
     try:
-        result = await manager.call_tool(server, tool_name, arguments)
-        return {
-            "success": True,
-            "result": result,
-            "error": None,
-            "elapsed_ms": round((time.monotonic() - start) * 1000, 2),
-        }
-    except TimeoutError:
-        return {
-            "success": False,
-            "result": None,
-            "error": f"Timeout calling '{tool_name}' on server '{server}'",
-            "elapsed_ms": round((time.monotonic() - start) * 1000, 2),
-        }
-    except KeyError as e:
-        return {
-            "success": False,
-            "result": None,
-            "error": str(e),
-            "elapsed_ms": round((time.monotonic() - start) * 1000, 2),
-        }
-    except Exception as e:
-        logger.exception("[%s/%s] Tool call failed", server, tool_name)
-        return {
-            "success": False,
-            "result": None,
-            "error": str(e),
-            "elapsed_ms": round((time.monotonic() - start) * 1000, 2),
-        }
+        tool = load_catalog(catalog_path).find_tool(server, tool_name)
+        if tool is None:
+            return _error_result(f"Tool '{tool_name}' not found on server '{server}'")
+
+        validation_errors = _validate_arguments(tool.input_schema, arguments)
+        if validation_errors:
+            return _error_result(
+                "Validation failed: "
+                + "; ".join(validation_errors)
+                + "\n\nExpected schema:\n"
+                + json.dumps(tool.input_schema, indent=2)
+            )
+
+        try:
+            raw = await manager.call_tool(server, tool_name, arguments)
+        except TimeoutError:
+            return _error_result(f"Timeout calling '{tool_name}' on server '{server}'")
+        except KeyError as e:
+            return _error_result(str(e.args[0]) if e.args else str(e))
+        # why: any backend failure must reach the client as an isError result.
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.exception("[%s/%s] Tool call failed", server, tool_name)
+            return _error_result(str(e))
+        return _to_call_tool_result(raw, server, tool_name)
+    finally:
+        logger.info(
+            "[%s/%s] call_tool elapsed_ms=%.2f",
+            server,
+            tool_name,
+            (time.monotonic() - start) * 1000,
+        )

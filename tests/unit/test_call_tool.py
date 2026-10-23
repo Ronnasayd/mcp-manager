@@ -1,20 +1,37 @@
 """Unit tests for call_tool argument validation and routing."""
 
+# why: pytest groups related cases in classes that hold a single test.
+# pylint: disable=too-few-public-methods
+
 from __future__ import annotations
 
+import json
+import logging
+import os
 from pathlib import Path
+import re
 import tempfile
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 
+from mcp.types import CallToolResult, ImageContent, TextContent
 import pytest
 
 from src.catalog.schema import Catalog, CatalogBackend, CatalogTool
 from src.tools.call_tool import _validate_arguments, call_tool
 from src.tools.search_tools import invalidate_catalog_cache
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture(autouse=True)
-def reset_cache():
+def reset_cache() -> Iterator[None]:
+    """Clear the global catalog cache around each test.
+
+    Yields:
+        None: Control to the test.
+    """
     invalidate_catalog_cache()
     yield
     invalidate_catalog_cache()
@@ -29,9 +46,11 @@ def _catalog_with_tool(input_schema: dict) -> Path:
     )
     b = CatalogBackend(id="srv", name="srv", type="http", tools=[t])
     catalog = Catalog(backends=[b])
-    f = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
-    Path(f.name).write_text(catalog.model_dump_json())
-    return Path(f.name)
+    fd, name = tempfile.mkstemp(suffix=".json")
+    os.close(fd)
+    path = Path(name)
+    path.write_text(catalog.model_dump_json(), encoding="utf-8")
+    return path
 
 
 class TestValidateArguments:
@@ -42,7 +61,7 @@ class TestValidateArguments:
             "properties": {"name": {"type": "string"}},
         }
         errors = _validate_arguments(schema, {"name": "hello"})
-        assert errors == []
+        assert not errors
 
     def test_missing_required_field(self):
         schema = {"type": "object", "required": ["name"]}
@@ -59,36 +78,160 @@ class TestValidateArguments:
 
     def test_empty_schema_allows_anything(self):
         errors = _validate_arguments({}, {"anything": "goes"})
-        assert errors == []
+        assert not errors
 
     def test_extra_fields_allowed(self):
         schema = {"type": "object", "properties": {"x": {"type": "string"}}}
         errors = _validate_arguments(schema, {"x": "hi", "extra": 123})
-        assert errors == []
+        assert not errors
+
+
+SCHEMA_Q = {
+    "type": "object",
+    "required": ["q"],
+    "properties": {"q": {"type": "string"}},
+}
+LOGGER = "src.tools.call_tool"
+
+
+async def _run(backend_result: object, schema: dict | None = None) -> CallToolResult:
+    """Run call_tool with a manager whose backend returns backend_result.
+
+    Args:
+        backend_result: Raw value the mocked backend returns.
+        schema: Input schema registered for srv/my_tool.
+
+    Returns:
+        CallToolResult: The proxy result.
+    """
+    path = _catalog_with_tool(schema or {})
+    manager = MagicMock()
+    manager.call_tool = AsyncMock(return_value=backend_result)
+    return await call_tool("srv", "my_tool", {}, manager, catalog_path=path)
+
+
+async def _run_raising(exc: BaseException) -> CallToolResult:
+    """Run call_tool with a manager whose backend raises exc.
+
+    Args:
+        exc: Exception raised by the mocked backend.
+
+    Returns:
+        CallToolResult: The proxy result.
+    """
+    path = _catalog_with_tool({})
+    manager = MagicMock()
+    manager.call_tool = AsyncMock(side_effect=exc)
+    return await call_tool("srv", "my_tool", {}, manager, catalog_path=path)
+
+
+def _only_text(result: CallToolResult) -> str:
+    """Return the text of the single text block in result.
+
+    Args:
+        result: Proxy result expected to hold exactly one text block.
+
+    Returns:
+        str: The text of that block.
+    """
+    assert len(result.content) == 1
+    block = result.content[0]
+    assert isinstance(block, TextContent)
+    return block.text
+
+
+def _info_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
+    """Return INFO records emitted by the call_tool module.
+
+    Args:
+        caplog: Pytest log capture fixture.
+
+    Returns:
+        list[logging.LogRecord]: Matching records.
+    """
+    return [r for r in caplog.records if r.name == LOGGER and r.levelno == logging.INFO]
 
 
 class TestCallTool:
-    @pytest.mark.asyncio
     async def test_success(self):
-        path = _catalog_with_tool(
-            {
-                "type": "object",
-                "required": ["q"],
-                "properties": {"q": {"type": "string"}},
-            }
-        )
+        path = _catalog_with_tool(SCHEMA_Q)
         manager = MagicMock()
-        manager.call_tool = AsyncMock(return_value={"data": "result"})
+        manager.call_tool = AsyncMock(
+            return_value={"content": [{"type": "text", "text": "hello"}]}
+        )
 
         result = await call_tool(
             "srv", "my_tool", {"q": "hello"}, manager, catalog_path=path
         )
-        assert result["success"] is True
-        assert result["result"] == {"data": "result"}
-        assert result["error"] is None
-        assert "elapsed_ms" in result
 
-    @pytest.mark.asyncio
+        assert isinstance(result, CallToolResult)
+        assert result.content == [TextContent(type="text", text="hello")]
+        assert result.isError is False
+
+    async def test_json_text_kept_verbatim(self):
+        result = await _run({"content": [{"type": "text", "text": '{"a": 1}'}]})
+
+        assert _only_text(result) == '{"a": 1}'
+
+    async def test_image_block_passthrough(self):
+        image = {"type": "image", "data": "aGk=", "mimeType": "image/png"}
+
+        result = await _run({"content": [image]})
+
+        assert result.content == [ImageContent(**image)]
+
+    async def test_structured_content_passthrough(self):
+        result = await _run({"content": [], "structuredContent": {"answer": 42}})
+
+        assert result.structuredContent == {"answer": 42}
+
+    async def test_backend_is_error_passthrough(self):
+        result = await _run(
+            {"content": [{"type": "text", "text": "bad input"}], "isError": True}
+        )
+
+        assert result.isError is True
+        assert _only_text(result) == "bad input"
+
+    async def test_meta_passthrough(self):
+        result = await _run({"content": [], "_meta": {"trace": "abc"}})
+
+        assert result.meta == {"trace": "abc"}
+
+    async def test_empty_content_without_is_error(self):
+        result = await _run({"content": []})
+
+        assert result.content == []
+        assert result.isError is False
+
+    async def test_null_top_level_keys_dropped(self):
+        result = await _run(
+            {"content": [{"type": "text", "text": "x"}], "isError": None}
+        )
+
+        assert result.isError is False
+        assert _only_text(result) == "x"
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            {"content": "x"},
+            [{"type": "text", "text": "x"}],
+            {"content": [{"type": "weird"}]},
+        ],
+    )
+    async def test_off_spec_result_falls_back_to_json_text(self, raw, caplog):
+        caplog.set_level(logging.WARNING, logger=LOGGER)
+
+        result = await _run(raw)
+
+        assert result.isError is False
+        assert _only_text(result) == json.dumps(raw)
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warnings) == 1
+        assert "srv" in warnings[0].getMessage()
+        assert "my_tool" in warnings[0].getMessage()
+
     async def test_tool_not_found(self):
         path = _catalog_with_tool({})
         manager = MagicMock()
@@ -96,18 +239,16 @@ class TestCallTool:
         result = await call_tool(
             "srv", "nonexistent_tool", {}, manager, catalog_path=path
         )
-        assert result["success"] is False
-        assert "not found" in result["error"]
 
-    @pytest.mark.asyncio
+        assert result.isError is True
+        assert _only_text(result) == "Tool 'nonexistent_tool' not found on server 'srv'"
+
     async def test_server_not_found(self):
-        path = _catalog_with_tool({})
-        manager = MagicMock()
+        result = await _run_raising(KeyError("Unknown server: srv"))
 
-        result = await call_tool("no_server", "my_tool", {}, manager, catalog_path=path)
-        assert result["success"] is False
+        assert result.isError is True
+        assert _only_text(result) == "Unknown server: srv"
 
-    @pytest.mark.asyncio
     async def test_validation_failure(self):
         schema = {
             "type": "object",
@@ -120,46 +261,58 @@ class TestCallTool:
         result = await call_tool(
             "srv", "my_tool", {"count": "not_int"}, manager, catalog_path=path
         )
-        assert result["success"] is False
-        assert "Validation failed" in result["error"]
-        assert result["expected_schema"] == schema
 
-    @pytest.mark.asyncio
+        assert result.isError is True
+        assert _only_text(result) == (
+            "Validation failed: Argument 'count': expected type integer, got str"
+            "\n\nExpected schema:\n" + json.dumps(schema, indent=2)
+        )
+
     async def test_missing_required_arg(self):
         schema = {"type": "object", "required": ["mandatory"]}
         path = _catalog_with_tool(schema)
         manager = MagicMock()
 
         result = await call_tool("srv", "my_tool", {}, manager, catalog_path=path)
-        assert result["success"] is False
-        assert "mandatory" in result["error"]
 
-    @pytest.mark.asyncio
-    async def test_backend_exception_wrapped(self):
-        path = _catalog_with_tool({})
-        manager = MagicMock()
-        manager.call_tool = AsyncMock(side_effect=RuntimeError("backend exploded"))
+        assert result.isError is True
+        assert _only_text(result) == (
+            "Validation failed: Missing required argument: 'mandatory'"
+            "\n\nExpected schema:\n" + json.dumps(schema, indent=2)
+        )
 
-        result = await call_tool("srv", "my_tool", {}, manager, catalog_path=path)
-        assert result["success"] is False
-        assert "backend exploded" in result["error"]
+    async def test_backend_exception_wrapped(self, caplog):
+        caplog.set_level(logging.ERROR, logger=LOGGER)
 
-    @pytest.mark.asyncio
+        result = await _run_raising(RuntimeError("backend exploded"))
+
+        assert result.isError is True
+        assert _only_text(result) == "backend exploded"
+        errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+        assert len(errors) == 1
+        assert errors[0].exc_info is not None
+
     async def test_timeout_wrapped(self):
+        result = await _run_raising(TimeoutError())
+
+        assert result.isError is True
+        assert _only_text(result) == "Timeout calling 'my_tool' on server 'srv'"
+
+    async def test_success_logs_elapsed_once(self, caplog):
+        caplog.set_level(logging.INFO, logger=LOGGER)
+
+        await _run({"content": []})
+
+        records = _info_records(caplog)
+        assert len(records) == 1
+        assert re.search(r"srv.*my_tool.*elapsed_ms=\d+\.\d+", records[0].getMessage())
+
+    async def test_error_branch_logs_elapsed_once(self, caplog):
+        caplog.set_level(logging.INFO, logger=LOGGER)
         path = _catalog_with_tool({})
-        manager = MagicMock()
-        manager.call_tool = AsyncMock(side_effect=TimeoutError())
 
-        result = await call_tool("srv", "my_tool", {}, manager, catalog_path=path)
-        assert result["success"] is False
-        assert "Timeout" in result["error"]
+        await call_tool("srv", "ghost", {}, MagicMock(), catalog_path=path)
 
-    @pytest.mark.asyncio
-    async def test_elapsed_ms_present(self):
-        path = _catalog_with_tool({})
-        manager = MagicMock()
-        manager.call_tool = AsyncMock(return_value="ok")
-
-        result = await call_tool("srv", "my_tool", {}, manager, catalog_path=path)
-        assert isinstance(result["elapsed_ms"], float)
-        assert result["elapsed_ms"] >= 0
+        records = _info_records(caplog)
+        assert len(records) == 1
+        assert re.search(r"srv.*ghost.*elapsed_ms=\d+\.\d+", records[0].getMessage())

@@ -1,19 +1,34 @@
 """Integration tests for error paths: timeouts, invalid inputs, backend failures."""
 
+# why: pytest groups related cases in classes that hold a single test.
+# pylint: disable=too-few-public-methods
+
 from __future__ import annotations
 
-from pathlib import Path
+import logging
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 
+from mcp.types import CallToolResult, TextContent
 import pytest
+
 from src.catalog.schema import Catalog, CatalogBackend, CatalogTool
 from src.tools.call_tool import call_tool
 from src.tools.get_tool_schema import get_tool_schema
 from src.tools.search_tools import invalidate_catalog_cache, search_tools
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from pathlib import Path
+
 
 @pytest.fixture(autouse=True)
-def reset_cache():
+def reset_cache() -> Iterator[None]:
+    """Clear the global catalog cache around each test.
+
+    Yields:
+        None: Control to the test.
+    """
     invalidate_catalog_cache()
     yield
     invalidate_catalog_cache()
@@ -36,8 +51,32 @@ def _simple_catalog(path: Path) -> None:
     path.write_text(catalog.model_dump_json())
 
 
+def _error_text(result: CallToolResult) -> str:
+    """Assert result is a proxy error and return its single text.
+
+    Args:
+        result: Proxy result.
+
+    Returns:
+        str: Text of the single error block.
+    """
+    assert result.isError is True
+    assert len(result.content) == 1
+    block = result.content[0]
+    assert isinstance(block, TextContent)
+    return block.text
+
+
 @pytest.fixture
-def catalog_path(tmp_path):
+def catalog_path(tmp_path: Path) -> Path:
+    """Write the single-tool catalog under tmp_path.
+
+    Args:
+        tmp_path: Pytest temporary directory.
+
+    Returns:
+        Path: Path to the written catalog.
+    """
     p = tmp_path / "catalog.json"
     _simple_catalog(p)
     return p
@@ -52,9 +91,7 @@ class TestTimeoutHandling:
         result = await call_tool(
             "srv", "my_tool", {"x": "hello"}, manager, catalog_path=catalog_path
         )
-        assert result["success"] is False
-        assert "Timeout" in result["error"]
-        assert result["elapsed_ms"] >= 0
+        assert _error_text(result) == "Timeout calling 'my_tool' on server 'srv'"
 
 
 class TestValidationErrors:
@@ -64,8 +101,9 @@ class TestValidationErrors:
         result = await call_tool(
             "srv", "my_tool", {}, manager, catalog_path=catalog_path
         )
-        assert result["success"] is False
-        assert "x" in result["error"]
+        assert _error_text(result).startswith(
+            "Validation failed: Missing required argument: 'x'\n\nExpected schema:\n"
+        )
 
     @pytest.mark.asyncio
     async def test_wrong_type(self, catalog_path):
@@ -73,8 +111,9 @@ class TestValidationErrors:
         result = await call_tool(
             "srv", "my_tool", {"x": 123}, manager, catalog_path=catalog_path
         )
-        assert result["success"] is False
-        assert "Validation failed" in result["error"]
+        assert _error_text(result).startswith(
+            "Validation failed: Argument 'x': expected type string, got int\n\n"
+        )
 
 
 class TestToolNotFound:
@@ -84,8 +123,7 @@ class TestToolNotFound:
         result = await call_tool(
             "srv", "ghost_tool", {"x": "y"}, manager, catalog_path=catalog_path
         )
-        assert result["success"] is False
-        assert "not found" in result["error"]
+        assert _error_text(result) == "Tool 'ghost_tool' not found on server 'srv'"
 
     @pytest.mark.asyncio
     async def test_unknown_server(self, catalog_path):
@@ -93,7 +131,9 @@ class TestToolNotFound:
         result = await call_tool(
             "ghost_server", "my_tool", {"x": "y"}, manager, catalog_path=catalog_path
         )
-        assert result["success"] is False
+        assert _error_text(result) == (
+            "Tool 'my_tool' not found on server 'ghost_server'"
+        )
 
     def test_get_schema_unknown_server(self, catalog_path):
         result = get_tool_schema("ghost_server", "my_tool", catalog_path=catalog_path)
@@ -114,7 +154,7 @@ class TestEmptyState:
         p.write_text(Catalog().model_dump_json())
         manager = MagicMock()
         result = await call_tool("srv", "tool", {}, manager, catalog_path=p)
-        assert result["success"] is False
+        assert _error_text(result) == "Tool 'tool' not found on server 'srv'"
 
 
 class TestBackendCrash:
@@ -125,15 +165,16 @@ class TestBackendCrash:
         result = await call_tool(
             "srv", "my_tool", {"x": "v"}, manager, catalog_path=catalog_path
         )
-        assert result["success"] is False
-        assert "process died" in result["error"]
+        assert _error_text(result) == "process died"
 
     @pytest.mark.asyncio
-    async def test_result_always_has_elapsed(self, catalog_path):
+    async def test_crash_logs_elapsed_once(self, catalog_path, caplog):
+        caplog.set_level(logging.INFO, logger="src.tools.call_tool")
         manager = MagicMock()
         manager.call_tool = AsyncMock(side_effect=Exception("boom"))
-        result = await call_tool(
+        await call_tool(
             "srv", "my_tool", {"x": "v"}, manager, catalog_path=catalog_path
         )
-        assert "elapsed_ms" in result
-        assert isinstance(result["elapsed_ms"], float)
+        infos = [r for r in caplog.records if r.levelno == logging.INFO]
+        assert len(infos) == 1
+        assert "elapsed_ms=" in infos[0].getMessage()
