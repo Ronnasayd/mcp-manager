@@ -31,6 +31,7 @@ SERVER_DESCRIPTIONS: dict[str, str] = {
     "large-file": "Read, search, and navigate large files in chunks",
     "laya": "Laya: model routing/prediction (route, predict, shortlist)",
     "clef": "Clef: typed decisions, choices, and scoring over a given state",
+    "drawio": "draw.io: open diagrams from XML/CSV/Mermaid, edit pages, shapes",
 }
 
 

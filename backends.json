@@ -143,6 +143,10 @@
         "CLOUDFLARE_ACCOUNT_ID": "${MCP_CLOUDFLARE_ACCOUNT_ID:-add-value-to-env-vars}",
         "CLOUDFLARE_API_TOKEN": "${MCP_CLOUDFLARE_API_TOKEN:-add-value-to-env-vars}"
       }
+    },
+    "drawio": {
+      "command": "npx",
+      "args": ["@drawio/mcp"]
     }
   }
 }
