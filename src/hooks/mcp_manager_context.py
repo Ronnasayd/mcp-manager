@@ -8,6 +8,7 @@ import json
 import sys
 
 SERVER_DESCRIPTIONS: dict[str, str] = {
+    "rea": "Reverse engineering: native, managed, Electron, firmware, browser targets",
     "rag-rat": "Repo intel: semantic search, symbols, callers, impact",
     "codebase-memory": "Code graph: index repo, trace calls, file outlines",
     "serena": "LSP-based semantic code navigation and symbol-level editing",
@@ -29,9 +30,9 @@ SERVER_DESCRIPTIONS: dict[str, str] = {
     "html-to-markdown": "Convert HTML/web pages to Markdown and save it",
     "json-mcp-filter": "Inspect JSON schema and filter large JSON files",
     "large-file": "Read, search, and navigate large files in chunks",
-    "laya": "Laya: model routing/prediction (route, predict, shortlist)",
-    "clef": "Clef: typed decisions, choices, and scoring over a given state",
-    "drawio": "draw.io: open diagrams from XML/CSV/Mermaid, edit pages, shapes",
+    "laya": "Laya: fast typed-decision classifier (choice/score/prob), no text gen",
+    "clef": "Clef: LLM typed decisions (choice/score/probability) over a state",
+    "drawio": "draw.io: generate/edit diagrams from XML, CSV, Mermaid; search shapes",
 }
 
 

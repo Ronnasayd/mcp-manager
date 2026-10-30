@@ -7,22 +7,29 @@ import asyncio
 import json
 import logging
 import os
-import re
 from pathlib import Path
-from typing import Any
+import re
+
+import httpx
+from pydantic import ValidationError
 
 from src.catalog.schema import (
     BackendsConfig,
-    BackendType,
     Catalog,
     CatalogBackend,
     CatalogTool,
+    HttpBackendConfig,
+    StdioBackendConfig,
 )
 from src.catalog.vector_store import build_index
 
 logger = logging.getLogger(__name__)
 
 ENV_VAR_RE = re.compile(r"\$\{(?:env:)?([A-Za-z_][A-Za-z0-9_]*)\}")
+
+# Default asyncio StreamReader limit (64KB) is too small for backends whose
+# tools/list response (many tools / large schemas) exceeds it in one line.
+STDIO_READ_LIMIT = 10 * 1024 * 1024
 
 
 def substitute_env_vars(value: str) -> str:
@@ -45,19 +52,74 @@ def resolve_config(config: BackendsConfig) -> BackendsConfig:
     return BackendsConfig.model_validate_json(resolved_str)
 
 
-async def _list_tools_stdio(server_id: str, cfg: Any, timeout: int) -> list[dict]:
-    """Spawn a stdio MCP server and call list_tools."""
-    import anyio
+async def _mcp_handshake_and_list_tools(
+    server_id: str,
+    stdin: asyncio.StreamWriter,
+    stdout: asyncio.StreamReader,
+    timeout: int,
+) -> list[dict]:
+    """Run the MCP stdio handshake and return the discovered tools.
 
-    cmd = [cfg.command] + cfg.args
+    Sends initialize/initialized/tools-list over an already-open pipe pair.
+    """
+    request = (
+        json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "catalog-builder", "version": "1.0"},
+                },
+            }
+        )
+        + "\n"
+    )
+    stdin.write(request.encode())
+    await stdin.drain()
+
+    async with asyncio.timeout(timeout):
+        line = await stdout.readline()
+        if line:
+            logger.debug(
+                "[%s] initialize response: %s", server_id, line.decode().strip()
+            )
+
+    notif = (
+        json.dumps(
+            {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}
+        )
+        + "\n"
+    )
+    stdin.write(notif.encode())
+    await stdin.drain()
+
+    list_req = (
+        json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
+        + "\n"
+    )
+    stdin.write(list_req.encode())
+    await stdin.drain()
+
+    async with asyncio.timeout(timeout):
+        line = await stdout.readline()
+        if line:
+            resp = json.loads(line.decode())
+            return resp.get("result", {}).get("tools", [])
+
+    return []
+
+
+async def _list_tools_stdio(
+    server_id: str, cfg: StdioBackendConfig, timeout: int
+) -> list[dict]:
+    """Spawn a stdio MCP server and call list_tools."""
+    cmd = [cfg.command, *cfg.args]
     env = {**os.environ, **{k: substitute_env_vars(v) for k, v in cfg.env.items()}}
 
     tools: list[dict] = []
-    try:
-        async with anyio.from_thread.start_blocking_portal() as _:
-            pass
-    except Exception:
-        pass
 
     proc = await asyncio.create_subprocess_exec(
         *cmd,
@@ -65,93 +127,56 @@ async def _list_tools_stdio(server_id: str, cfg: Any, timeout: int) -> list[dict
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         env=env,
+        limit=STDIO_READ_LIMIT,
     )
 
+    if proc.stdin is None or proc.stdout is None:
+        logger.warning("[%s] Subprocess has no stdin/stdout pipes", server_id)
+        return tools
+
     try:
-        request = (
-            json.dumps(
-                {
-                    "jsonrpc": "2.0",
-                    "id": 1,
-                    "method": "initialize",
-                    "params": {
-                        "protocolVersion": "2024-11-05",
-                        "capabilities": {},
-                        "clientInfo": {"name": "catalog-builder", "version": "1.0"},
-                    },
-                }
-            )
-            + "\n"
+        tools = await _mcp_handshake_and_list_tools(
+            server_id, proc.stdin, proc.stdout, timeout
         )
-
-        proc.stdin.write(request.encode())
-        await proc.stdin.drain()
-
-        # Read initialize response
-        async with asyncio.timeout(timeout):
-            line = await proc.stdout.readline()
-            if line:
-                logger.debug(
-                    "[%s] initialize response: %s", server_id, line.decode().strip()
-                )
-
-        # Send initialized notification
-        notif = (
-            json.dumps(
-                {
-                    "jsonrpc": "2.0",
-                    "method": "notifications/initialized",
-                    "params": {},
-                }
-            )
-            + "\n"
-        )
-        proc.stdin.write(notif.encode())
-        await proc.stdin.drain()
-
-        # Call list_tools
-        list_req = (
-            json.dumps(
-                {
-                    "jsonrpc": "2.0",
-                    "id": 2,
-                    "method": "tools/list",
-                    "params": {},
-                }
-            )
-            + "\n"
-        )
-        proc.stdin.write(list_req.encode())
-        await proc.stdin.drain()
-
-        async with asyncio.timeout(timeout):
-            line = await proc.stdout.readline()
-            if line:
-                resp = json.loads(line.decode())
-                tools = resp.get("result", {}).get("tools", [])
-
     except TimeoutError:
         logger.warning("[%s] Timed out listing tools", server_id)
-    except Exception as e:
+    except (OSError, ValueError, json.JSONDecodeError) as e:
         logger.warning("[%s] Error listing tools: %s", server_id, e)
     finally:
-        try:
-            proc.stdin.close()
-            proc.kill()
-            await proc.wait()
-        except Exception:
-            pass
+        await _terminate_process(server_id, proc)
 
     return tools
 
 
-async def _list_tools_http(server_id: str, cfg: Any, timeout: int) -> list[dict]:
+async def _terminate_process(server_id: str, proc: asyncio.subprocess.Process) -> None:
+    """Close stdin and kill the subprocess, logging but not raising on failure."""
+    try:
+        if proc.stdin is not None:
+            proc.stdin.close()
+        proc.kill()
+        await proc.wait()
+    except OSError as e:
+        logger.debug("[%s] Error terminating subprocess: %s", server_id, e)
+
+
+def _first_sse_data_line(text: str) -> str | None:
+    """Return the payload of the first `data:` line in an SSE response, if any."""
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("data:"):
+            data_str = line[len("data:") :].strip()
+            if data_str:
+                return data_str
+    return None
+
+
+async def _list_tools_http(
+    server_id: str, cfg: HttpBackendConfig, timeout: int
+) -> list[dict]:
     """Call list_tools on an HTTP MCP server.
 
     Supports both plain JSON-RPC responses and MCP Streamable HTTP (SSE) responses.
     """
-    import httpx
-
     url = cfg.url.rstrip("/")
     headers = {
         "Content-Type": "application/json",
@@ -174,19 +199,12 @@ async def _list_tools_http(server_id: str, cfg: Any, timeout: int) -> list[dict]
 
             content_type = resp.headers.get("content-type", "")
             if "text/event-stream" in content_type:
-                # Parse SSE: extract the first JSON data line
-                for line in resp.text.splitlines():
-                    line = line.strip()
-                    if line.startswith("data:"):
-                        data_str = line[len("data:") :].strip()
-                        if data_str:
-                            data = json.loads(data_str)
-                            return data.get("result", {}).get("tools", [])
-                return []
+                data_str = _first_sse_data_line(resp.text)
+                data = json.loads(data_str) if data_str else {}
             else:
                 data = resp.json()
-                return data.get("result", {}).get("tools", [])
-    except Exception as e:
+            return data.get("result", {}).get("tools", [])
+    except (httpx.HTTPError, json.JSONDecodeError) as e:
         logger.warning("[%s] HTTP error listing tools: %s", server_id, e)
         return []
 
@@ -205,11 +223,11 @@ async def build_catalog(config_path: Path, catalog_path: Path) -> Catalog:
         error: str | None = None
 
         try:
-            if cfg.type == BackendType.STDIO:
+            if isinstance(cfg, StdioBackendConfig):
                 raw_tools = await _list_tools_stdio(server_id, cfg, cfg.timeout_seconds)
             else:
                 raw_tools = await _list_tools_http(server_id, cfg, cfg.timeout_seconds)
-        except Exception as e:
+        except (OSError, ValueError, TimeoutError) as e:
             error = str(e)
             logger.error("[%s] Failed to catalog: %s", server_id, e)
 
@@ -224,7 +242,7 @@ async def build_catalog(config_path: Path, catalog_path: Path) -> Catalog:
                         input_schema=t.get("inputSchema", {}),
                     )
                 )
-            except Exception as e:
+            except ValidationError as e:
                 logger.warning(
                     "[%s] Skipping malformed tool %s: %s", server_id, t.get("name"), e
                 )
@@ -253,6 +271,7 @@ async def build_catalog(config_path: Path, catalog_path: Path) -> Catalog:
 
 
 def main() -> None:
+    """CLI entrypoint: parse args and build the catalog."""
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="Build MCP proxy tool catalog")
     parser.add_argument(

@@ -1,5 +1,9 @@
 {
   "servers": {
+    "rea": {
+      "command": "npx",
+      "args": ["-y", "rea-agents", "--mcp"]
+    },
     "rag-rat": {
       "type": "stdio",
       "command": "rag-rat",
