@@ -30,8 +30,8 @@ SERVER_DESCRIPTIONS: dict[str, str] = {
     "html-to-markdown": "Convert HTML/web pages to Markdown and save it",
     "json-mcp-filter": "Inspect JSON schema and filter large JSON files",
     "large-file": "Read, search, and navigate large files in chunks",
-    "laya": "Laya: fast typed-decision classifier (choice/score/prob), no text gen",
-    "clef": "Clef: LLM typed decisions (choice/score/probability) over a state",
+    "laya": "Laya: fast(cpu) typed-decision classifier (choice/score/prob)",
+    "clef": "Clef: Web-api LLM typed-decision classifier (choice/score/probability)",
     "drawio": "draw.io: generate/edit diagrams from XML, CSV, Mermaid; search shapes",
 }
 
