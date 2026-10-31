@@ -4,7 +4,8 @@
       "command": "npx",
       "args": ["-y", "rea-agents", "--mcp"],
       "env": {
-        "GHIDRA_INSTALL_DIR": "${MCP_GHIDRA_INSTALL_DIR}"
+        "GHIDRA_INSTALL_DIR": "${MCP_GHIDRA_INSTALL_DIR}",
+        "REA_JADX_MCP_JAR": "${MCP_REA_JADX_MCP_JAR}"
       }
     },
     "rag-rat": {
