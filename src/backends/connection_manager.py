@@ -12,6 +12,7 @@ import time
 import httpx
 
 from src.catalog.schema import (
+    STDIO_READ_LIMIT,
     BackendType,
     HttpBackendConfig,
     StdioBackendConfig,
@@ -108,6 +109,7 @@ class StdioConnection(BackendConnection):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=env,
+            limit=STDIO_READ_LIMIT,
         )
         self._initialized = False
         # why: a respawned process is a new JSON-RPC session; ids restart at 1.

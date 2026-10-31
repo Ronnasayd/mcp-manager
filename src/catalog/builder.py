@@ -14,6 +14,7 @@ import httpx
 from pydantic import ValidationError
 
 from src.catalog.schema import (
+    STDIO_READ_LIMIT,
     BackendsConfig,
     Catalog,
     CatalogBackend,
@@ -26,10 +27,6 @@ from src.catalog.vector_store import build_index
 logger = logging.getLogger(__name__)
 
 ENV_VAR_RE = re.compile(r"\$\{(?:env:)?([A-Za-z_][A-Za-z0-9_]*)\}")
-
-# Default asyncio StreamReader limit (64KB) is too small for backends whose
-# tools/list response (many tools / large schemas) exceeds it in one line.
-STDIO_READ_LIMIT = 10 * 1024 * 1024
 
 
 def substitute_env_vars(value: str) -> str:

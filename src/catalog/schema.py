@@ -3,19 +3,27 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+# why: default asyncio StreamReader limit (64KiB) overflows on large stdio
+# responses (big pseudocode/tool lists); shared by builder and connection_manager.
+STDIO_READ_LIMIT = 10 * 1024 * 1024
 
-class BackendType(str, Enum):
+
+class BackendType(StrEnum):
+    """Backend transport kind: stdio subprocess or HTTP(S)."""
+
     STDIO = "stdio"
     HTTP = "http"
     HTTPS = "https"
 
 
 class StdioBackendConfig(BaseModel):
+    """Config for a backend spawned as a local stdio subprocess."""
+
     type: BackendType = BackendType.STDIO
     command: str
     args: list[str] = Field(default_factory=list)
@@ -24,6 +32,8 @@ class StdioBackendConfig(BaseModel):
 
 
 class HttpBackendConfig(BaseModel):
+    """Config for a backend reached over HTTP(S)."""
+
     type: BackendType
     url: str
     timeout_seconds: int = 300
@@ -32,6 +42,7 @@ class HttpBackendConfig(BaseModel):
     @field_validator("type")
     @classmethod
     def must_be_http(cls, v: BackendType) -> BackendType:
+        """Reject a stdio type on an HTTP backend config."""
         if v not in (BackendType.HTTP, BackendType.HTTPS):
             raise ValueError("type must be 'http' or 'https'")
         return v
@@ -44,7 +55,8 @@ class BackendsConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def coerce_server_types(cls, data: Any) -> Any:
+    def coerce_server_types(cls, data: dict[str, Any]) -> dict[str, Any]:
+        """Coerce each raw server dict into its Stdio/Http config class by `type`."""
         servers = data.get("servers", {})
         for name, cfg in servers.items():
             if isinstance(cfg, dict):
@@ -72,7 +84,8 @@ class CatalogTool(BaseModel):
     key: str = ""
 
     @model_validator(mode="after")
-    def set_key(self) -> "CatalogTool":
+    def set_key(self) -> CatalogTool:
+        """Derive the namespaced key from server_id/name when not set."""
         if not self.key:
             self.key = f"{self.server_id}/{self.name}"
         return self
@@ -90,7 +103,8 @@ class CatalogBackend(BaseModel):
     error: str | None = None
 
     @model_validator(mode="after")
-    def set_tool_count(self) -> "CatalogBackend":
+    def set_tool_count(self) -> CatalogBackend:
+        """Keep tool_count in sync with the tools list length."""
         self.tool_count = len(self.tools)
         return self
 
@@ -103,15 +117,15 @@ class Catalog(BaseModel):
     backends: list[CatalogBackend] = Field(default_factory=list)
 
     def all_tools(self) -> list[CatalogTool]:
+        """Flatten every backend's tools into a single list."""
         tools = []
         for backend in self.backends:
             tools.extend(backend.tools)
         return tools
 
     def find_tool(self, server_id: str, tool_name: str) -> CatalogTool | None:
-        for backend in self.backends:
-            if backend.id == server_id:
-                for tool in backend.tools:
-                    if tool.name == tool_name:
-                        return tool
-        return None
+        """Look up a tool by its server id and tool name, or None if absent."""
+        backend = next((b for b in self.backends if b.id == server_id), None)
+        if backend is None:
+            return None
+        return next((t for t in backend.tools if t.name == tool_name), None)

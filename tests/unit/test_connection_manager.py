@@ -327,7 +327,60 @@ def _make_stdio_process(responses: list[bytes]) -> MagicMock:
     return proc
 
 
+def _make_fake_create_subprocess_exec(*response_lines: bytes):
+    """Fake asyncio.create_subprocess_exec whose stdout is a real
+    asyncio.StreamReader honoring the caller's `limit` kwarg, so the test
+    reproduces the real LimitOverrunError for oversized lines when the limit
+    is too small, and the real fix when it is large enough."""
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        proc = MagicMock()
+        proc.returncode = None
+        proc.stdin = MagicMock()
+        proc.stdin.write = MagicMock()
+        proc.stdin.drain = AsyncMock()
+        proc.stdin.close = MagicMock()
+        proc.kill = MagicMock()
+        proc.wait = AsyncMock()
+
+        limit = kwargs.get("limit", 65536)
+        reader = asyncio.StreamReader(limit=limit)
+        reader.feed_data(b"".join(response_lines))
+        reader.feed_eof()
+
+        proc.stdout = reader
+        return proc
+
+    return fake_create_subprocess_exec
+
+
 class TestStdioConnection:
+    @pytest.mark.asyncio
+    async def test_call_tool_handles_large_response(self):
+        """A tool response bigger than the default 64KB stdio limit must
+        still be parsed successfully instead of raising LimitOverrunError."""
+        cfg = _stdio_cfg()
+        conn = StdioConnection("srv", cfg)
+
+        init_resp = _make_jsonrpc_response(
+            1,
+            {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": "srv", "version": "1.0"},
+            },
+        )
+        big_result = {"content": [{"type": "text", "text": "x" * 100_000}]}
+        tool_resp = _make_jsonrpc_response(2, big_result)
+
+        with patch(
+            "asyncio.create_subprocess_exec",
+            _make_fake_create_subprocess_exec(init_resp, tool_resp),
+        ):
+            result = await conn.call_tool("my_tool", {"x": "hi"})
+
+        assert result == big_result
+
     @pytest.mark.asyncio
     async def test_call_tool_success(self):
         cfg = _stdio_cfg()
