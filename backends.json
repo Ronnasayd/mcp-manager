@@ -2,7 +2,10 @@
   "servers": {
     "rea": {
       "command": "npx",
-      "args": ["-y", "rea-agents", "--mcp"]
+      "args": ["-y", "rea-agents", "--mcp"],
+      "env": {
+        "GHIDRA_INSTALL_DIR": "${MCP_GHIDRA_INSTALL_DIR}"
+      }
     },
     "rag-rat": {
       "type": "stdio",
@@ -144,8 +147,8 @@
         "clef-mcp"
       ],
       "env": {
-        "CLOUDFLARE_ACCOUNT_ID": "${MCP_CLOUDFLARE_ACCOUNT_ID:-add-value-to-env-vars}",
-        "CLOUDFLARE_API_TOKEN": "${MCP_CLOUDFLARE_API_TOKEN:-add-value-to-env-vars}"
+        "CLOUDFLARE_ACCOUNT_ID": "${MCP_CLOUDFLARE_ACCOUNT_ID}",
+        "CLOUDFLARE_API_TOKEN": "${MCP_CLOUDFLARE_API_TOKEN}"
       }
     },
     "drawio": {
