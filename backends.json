@@ -1,5 +1,37 @@
 {
   "servers": {
+    "vrep": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/Ronnasayd/vrep-mcp.git",
+        "vrep-mcp"
+      ],
+      "env": {
+        "VREP_DATA_DIR": "${MCP_VREP_DATA_DIR}"
+      },
+      "type": "stdio"
+    },
+    "krita": {
+      "command": "python3",
+      "args": ["${HOME}/develop/public/krita-mcp/mcp_server.py"]
+    },
+    "figma-console": {
+      "command": "npx",
+      "args": ["-y", "figma-console-mcp@latest"],
+      "env": {
+        "FIGMA_ACCESS_TOKEN": "${MCP_FIGMA_ACCESS_TOKEN}",
+        "ENABLE_MCP_APPS": "true"
+      }
+    },
+    "similarity-mcp": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "custom-mcps[embeddings] @ git+https://github.com/Ronnasayd/custom-mcps",
+        "similarity-mcp"
+      ]
+    },
     "rea": {
       "command": "npx",
       "args": ["-y", "rea-agents", "--mcp"],

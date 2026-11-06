@@ -8,6 +8,10 @@ import json
 import sys
 
 SERVER_DESCRIPTIONS: dict[str, str] = {
+    "vrep": "CoppeliaSim (V-REP): search API docs, call functions on running sim",
+    "krita": "Krita: documents, layers, drawing, filters, run Python in Krita",
+    "figma-console": "Figma: design tokens, components, nodes, plugin console, audits",
+    "similarity-mcp": "Text similarity: pairwise cosine matrix from embeddings",
     "rea": "Reverse engineering: native, managed, Electron, firmware, browser targets",
     "rag-rat": "Repo intel: semantic search, symbols, callers, impact",
     "codebase-memory": "Code graph: index repo, trace calls, file outlines",
