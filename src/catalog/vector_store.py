@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+import hashlib
 import logging
 import sqlite3
-from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from src.catalog.schema import Catalog
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from fastembed import TextEmbedding  # type: ignore[import-untyped]
+
+    from src.catalog.schema import Catalog
 
 logger = logging.getLogger(__name__)
 
@@ -22,13 +28,16 @@ CREATE TABLE IF NOT EXISTS tool_embeddings (
     server_id   TEXT NOT NULL,
     name        TEXT NOT NULL,
     description TEXT NOT NULL,
-    embedding   BLOB NOT NULL
+    embedding   BLOB NOT NULL,
+    text_hash   TEXT NOT NULL DEFAULT ''
 )
 """
 
 
 @dataclass
 class SearchResult:
+    """One ranked tool returned by VectorStore.search."""
+
     key: str
     server_id: str
     name: str
@@ -36,17 +45,43 @@ class SearchResult:
     score: float  # 0-100
 
 
-def _get_embedder():  # noqa: ANN201
-    """Return a cached TextEmbedding instance (lazy import)."""
-    from fastembed import TextEmbedding  # type: ignore[import-untyped]
+def _get_embedder() -> TextEmbedding:
+    """Return a TextEmbedding instance (lazy import)."""
+    # why: fastembed import and model load are slow; defer until actually needed.
+    from fastembed import (  # type: ignore[import-untyped]  # pylint: disable=import-outside-toplevel
+        TextEmbedding,
+    )
 
     return TextEmbedding(_MODEL_ID)
 
 
-def build_index(catalog: Catalog, db_path: Path) -> None:
-    """Embed all tools in *catalog* and write to SQLite at *db_path*.
+def _hash_text(text: str) -> str:
+    """Hash the embedded text together with the model id.
 
-    Replaces existing rows via INSERT OR REPLACE.
+    why: including _MODEL_ID makes a model swap invalidate every stored vector.
+    """
+    return hashlib.sha256(f"{_MODEL_ID}\n{text}".encode()).hexdigest()
+
+
+def _open_db(db_path: Path) -> sqlite3.Connection:
+    """Open *db_path*, creating the table or migrating a legacy one."""
+    con = sqlite3.connect(db_path)
+    con.execute(_CREATE_TABLE)
+    columns = {row[1] for row in con.execute("PRAGMA table_info(tool_embeddings)")}
+    if "text_hash" not in columns:
+        # why: legacy rows get an empty hash, so they are re-embedded exactly once.
+        con.execute(
+            "ALTER TABLE tool_embeddings ADD COLUMN text_hash TEXT NOT NULL DEFAULT ''"
+        )
+    return con
+
+
+def build_index(catalog: Catalog, db_path: Path) -> None:
+    """Embed new or changed tools in *catalog* and sync SQLite at *db_path*.
+
+    Tools whose text hash matches the stored one keep their embedding (the
+    embedder is not even loaded when nothing changed); tools no longer in the
+    catalog are deleted.
     Example: build_index(catalog, Path("catalog.db"))
     """
     tools = catalog.all_tools()
@@ -54,33 +89,43 @@ def build_index(catalog: Catalog, db_path: Path) -> None:
         logger.warning("build_index: catalog has no tools, skipping")
         return
 
-    embedder = _get_embedder()
-    texts = [f"{t.name}: {t.description}" for t in tools]
-
-    logger.info("Embedding %d tools with %s", len(tools), _MODEL_ID)
-    vectors = list(embedder.embed(texts))  # list of np.ndarray float32
-
-    con = sqlite3.connect(db_path)
+    texts = {t.key: f"{t.name}: {t.description}" for t in tools}
+    con = _open_db(db_path)
     try:
-        con.execute(_CREATE_TABLE)
-        rows = [
-            (
-                t.key,
-                t.server_id,
-                t.name,
-                t.description,
-                np.array(v, dtype=np.float32).tobytes(),
+        stored = dict(con.execute("SELECT key, text_hash FROM tool_embeddings"))
+        stale = [t for t in tools if stored.get(t.key) != _hash_text(texts[t.key])]
+        if stale:
+            logger.info("Embedding %d tools with %s", len(stale), _MODEL_ID)
+            vectors = _get_embedder().embed([texts[t.key] for t in stale])
+            con.executemany(
+                "INSERT OR REPLACE INTO tool_embeddings"
+                " (key, server_id, name, description, embedding, text_hash)"
+                " VALUES (?,?,?,?,?,?)",
+                [
+                    (
+                        t.key,
+                        t.server_id,
+                        t.name,
+                        t.description,
+                        np.array(v, dtype=np.float32).tobytes(),
+                        _hash_text(texts[t.key]),
+                    )
+                    for t, v in zip(stale, vectors, strict=True)
+                ],
             )
-            for t, v in zip(tools, vectors)
-        ]
-        con.executemany(
-            "INSERT OR REPLACE INTO tool_embeddings VALUES (?,?,?,?,?)", rows
-        )
+        removed = [(k,) for k in stored.keys() - texts.keys()]
+        con.executemany("DELETE FROM tool_embeddings WHERE key = ?", removed)
         con.commit()
     finally:
         con.close()
 
-    logger.info("Vector index written to %s (%d tools)", db_path, len(tools))
+    logger.info(
+        "Vector index written to %s: %d reused, %d embedded, %d removed",
+        db_path,
+        len(texts) - len({t.key for t in stale}),
+        len(stale),
+        len(removed),
+    )
 
 
 class VectorStore:
@@ -91,7 +136,7 @@ class VectorStore:
         results = store.search("retrieve data", top_k=5)
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         keys: list[str],
         server_ids: list[str],
@@ -99,6 +144,7 @@ class VectorStore:
         descriptions: list[str],
         matrix: np.ndarray,
     ) -> None:
+        """Store tool metadata and an L2-normalized copy of *matrix* [N, D]."""
         self._keys = keys
         self._server_ids = server_ids
         self._names = names
@@ -109,12 +155,13 @@ class VectorStore:
         self._matrix = matrix / norms  # already float32
 
     @classmethod
-    def load(cls, db_path: Path) -> "VectorStore":
+    def load(cls, db_path: Path) -> VectorStore:
         """Load all embeddings from *db_path* into memory."""
         con = sqlite3.connect(db_path)
         try:
             rows = con.execute(
-                "SELECT key, server_id, name, description, embedding FROM tool_embeddings"
+                "SELECT key, server_id, name, description, embedding"
+                " FROM tool_embeddings"
             ).fetchall()
         finally:
             con.close()
@@ -122,7 +169,7 @@ class VectorStore:
         if not rows:
             raise ValueError(f"No tool embeddings found in {db_path}")
 
-        keys, server_ids, names, descs, blobs = zip(*rows)
+        keys, server_ids, names, descs, blobs = zip(*rows, strict=True)
         matrix = np.stack([np.frombuffer(b, dtype=np.float32) for b in blobs])
         return cls(list(keys), list(server_ids), list(names), list(descs), matrix)
 
