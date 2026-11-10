@@ -37,6 +37,7 @@ SERVER_DESCRIPTIONS: dict[str, str] = {
     "laya": "Laya: fast(cpu) typed-decision classifier (choice/score/prob)",
     "clef": "Clef: Web-api LLM typed-decision classifier (choice/score/probability)",
     "drawio": "draw.io: generate/edit diagrams from XML, CSV, Mermaid; search shapes",
+    "google-workspace": "Google Workspace: Gmail, Drive, Calendar, Docs, Sheets",
 }
 
 
