@@ -1,5 +1,6 @@
 <!-- INIT:AUTO-GENERATED-CONTEXT:DO-NOT-MODIFY -->
 
+
 ## Mandatory rules — always follow
 
 - User question → interactive tool, never plain text. Claude: `AskUserQuestion`. Many questions: `grilling` skill.
@@ -28,6 +29,8 @@
 
 - Anytime: evaluate what worth saving as permanent memory. Save only what next session needs and can't rediscover from code, Git, or CLAUDE.md — _reason_ behind decision, non-obvious invariant, user preference. Already in repo or only relevant to this conversation → don't save. Persist via `ai-memory-durable-pages` skill.
 
+- Domain vocabulary: `GLOSSARY.md` (or `GLOSSARY-MAP.md`) exists → read before naming things, use its terms exactly. Term resolved/changed with user, or term conflicts with glossary → update via `domain-modeling` skill. No glossary yet → create it only once first term agreed with user, never from agent inference alone. Glossary holds terms only; reasons/gotchas go to ai-memory, not glossary.
+
 - Self-contained task (no dependency on history, clear input, concise output, intermediate work not required in the main conversation) → use a sub-agent.
 
 ## Mandatory rules — hallucination protection
@@ -43,7 +46,5 @@
 ## Context-Specific Rules
 
 The following rules apply to specific file types:
-
 - [code.instructions](.claude/instructions/code.instructions.md) — applies to: `**/*.ts, **/*.js, **/*.py, **/*.java, **/*.go, **/*.css, **/*.cpp, **/*.c, **/*.vue, **/*.jsx, **/*.tsx`
-
 <!-- END:AUTO-GENERATED-CONTEXT:DO-NOT-MODIFY -->
