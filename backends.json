@@ -60,7 +60,7 @@
     },
     "magick": {
       "type": "stdio",
-      "command": "/home/ronnas/.cargo/bin/magick-mcp",
+      "command": "${HOME}/.cargo/bin/magick-mcp",
       "args": ["mcp"]
     },
     "image-tools": {
